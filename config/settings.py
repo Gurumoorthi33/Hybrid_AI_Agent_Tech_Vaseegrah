@@ -10,10 +10,7 @@ load_dotenv()
 # ─────────────────────────────────────────────
 # MongoDB
 # ─────────────────────────────────────────────
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://techvaseegrah:gowhats%24tech2k25@gowhats.toqv1xm.mongodb.net/gowhats?retryWrites=true&w=majority&appName=Gowhats"
-)
+MONGO_URI = os.getenv("MONGO_URI", "")
 MONGO_DB_NAME = "gowhats"
 MONGO_CONV_COLLECTION       = "conversations"
 MONGO_SESSION_COLLECTION    = "sessions"

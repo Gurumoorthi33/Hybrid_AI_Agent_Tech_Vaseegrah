@@ -7,8 +7,12 @@ setup.py — one-time setup.
 Run: python setup.py
 """
 
-import os, shutil
+import os, shutil, sys
+from pathlib import Path
 from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 load_dotenv()
 
 # ── Directory scaffolding ─────────────────────────────────────────

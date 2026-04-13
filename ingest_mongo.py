@@ -1,6 +1,11 @@
+import sys
+from pathlib import Path
 from pymongo import MongoClient
 from utils import simple_embedding
 from config import MONGO_URI
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 
 client = MongoClient(MONGO_URI)
 

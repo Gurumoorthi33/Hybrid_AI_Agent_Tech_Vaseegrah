@@ -7,9 +7,13 @@ Modes:
   With customer key: python main.py --api-key <key> "Show all products"
 """
 
-import sys
+import sys, os
+from pathlib import Path
 import argparse
 from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 load_dotenv()   # loads ANTHROPIC_API_KEY + TAVILY_API_KEY from .env
 
 from graph.agent_graph import build_graph

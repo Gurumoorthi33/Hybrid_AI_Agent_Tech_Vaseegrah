@@ -4,7 +4,12 @@ Mounts all routers including the new dashboard router.
 Visit http://localhost:8000/dashboard after starting the server.
 """
 
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 load_dotenv()
 
 from fastapi import FastAPI, Depends
