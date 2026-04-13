@@ -304,7 +304,7 @@ class KeyManager:
         if active_only: query["is_active"] = True
 
         try:
-            collection = self._keys_read or self._keys
+            collection = self._keys_read if self._keys_read is not None else self._keys
             docs = (
                 collection
                 .find(query, {"key_hash": 0})  # never return hash
@@ -351,7 +351,7 @@ class KeyManager:
         query: dict = {"ts": {"$gte": since}}
         if key_id:   query["key_id"]  = key_id
         try:
-            collection = self._usage_read or self._usage
+            collection = self._usage_read if self._usage_read is not None else self._usage
             docs = (
                 collection
                 .find(query, {"_id": 0})

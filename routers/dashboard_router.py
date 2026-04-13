@@ -218,6 +218,10 @@ async def logs(limit: int = 60):
 # ── helper ────────────────────────────────────────────────────────
 
 def _parse_dt(value) -> datetime:
-    if isinstance(value, datetime): return value
-    try: return datetime.fromisoformat(str(value).replace("Z","+00:00"))
-    except: return datetime.min.replace(tzinfo=UTC)
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    except:
+        return datetime.min.replace(tzinfo=UTC)
