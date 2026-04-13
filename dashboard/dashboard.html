@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>YoWhats — API Key Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0c0e14;--bg2:#12151f;--bg3:#181d2a;--bg4:#1e2535;
+  --bd:#232b3e;--bd2:#2e3a52;
+  --t:#e2e5ee;--t2:#7f8a9e;--t3:#444e62;
+  --blue:#3b82f6;--blue2:#1d4ed8;--bdim:#1a2e56;
+  --green:#22c55e;--gdim:#0f2e1a;
+  --red:#ef4444;--rdim:#2a1010;
+  --amber:#f59e0b;--adim:#2a1e06;
+  --purple:#a78bfa;--pdim:#1f1445;
+  --teal:#2dd4bf;--tdimcol:#0d2926;
+  --font:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:10px;--r2:6px;--r3:16px;
+}
+html,body{height:100%}
+body{font-family:var(--font);font-size:14px;color:var(--t);background:var(--bg);display:flex;flex-direction:column;min-height:100vh}
+
+/* ── Layout ── */
+.layout{display:flex;flex:1;min-height:0}
+
+/* ── Sidebar ── */
+aside{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;overflow-y:auto}
+.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--bd)}
+.sb-brand{font-size:15px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.sb-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0}
+.sb-sub{font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:3px;padding-left:16px}
+.sb-sec{padding:16px 20px 5px;font-size:9px;font-weight:600;letter-spacing:.12em;color:var(--t3);text-transform:uppercase}
+.nav{display:flex;align-items:center;gap:9px;padding:7px 20px;font-size:13px;cursor:pointer;color:var(--t2);transition:.12s;border-left:2px solid transparent;user-select:none;border-radius:0}
+.nav:hover{color:var(--t);background:var(--bg3)}
+.nav.on{color:var(--t);background:var(--bg3);border-left-color:var(--blue);font-weight:500}
+.nav svg{width:14px;height:14px;opacity:.55;flex-shrink:0}
+.nav.on svg,.nav:hover svg{opacity:1}
+.sb-foot{margin-top:auto;padding:14px 20px;border-top:1px solid var(--bd)}
+.sb-foot-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Main ── */
+.main{flex:1;margin-left:220px;display:flex;flex-direction:column;min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 28px;border-bottom:1px solid var(--bd);background:var(--bg2);position:sticky;top:0;z-index:40;gap:12px}
+.tb-left{display:flex;align-items:center;gap:10px;min-width:0}
+.tb-title{font-size:15px;font-weight:500;white-space:nowrap}
+.spinner{width:14px;height:14px;border:2px solid var(--bd2);border-top-color:var(--blue);border-radius:50%;animation:spin .65s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tb-right{display:flex;align-items:center;gap:8px}
+.badge-role{font-size:10px;font-family:var(--mono);color:var(--purple);background:var(--pdim);padding:3px 9px;border-radius:20px;border:1px solid rgba(167,139,250,.18)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r2);font-size:13px;font-family:var(--font);cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--t2);transition:.12s;white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--bg3);color:var(--t)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover:not(:disabled){background:var(--blue2)}
+.btn-danger{color:var(--red);border-color:rgba(239,68,68,.25)}
+.btn-danger:hover:not(:disabled){background:var(--rdim)}
+.btn-ghost{border-color:transparent}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Content ── */
+.content{flex:1;padding:26px 28px;overflow-y:auto}
+.page{display:none}.page.active{display:block}
+
+/* ── Stat cards ── */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:26px}
+.stat{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px}
+.stat-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:9px}
+.stat-val{font-size:26px;font-weight:600;font-family:var(--mono);line-height:1}
+.stat-sub{font-size:11px;margin-top:6px;color:var(--t3)}
+.stat-sub.g{color:var(--green)}.stat-sub.r{color:var(--red)}
+
+/* ── Charts ── */
+.charts{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:26px}
+.chart-card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:18px 20px}
+.chart-lbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:14px}
+
+/* ── Section header ── */
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sec-hd h3{font-size:13px;font-weight:500;color:var(--t2)}
+
+/* ── Table ── */
+.tbl-box{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:26px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--bg3)}
+th{padding:8px 14px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd)}
+td{padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--t2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg3)}
+.td-main{color:var(--t)!important;font-weight:500}
+.mono{font-family:var(--mono);font-size:12px}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;font-family:var(--mono);border:1px solid transparent}
+.b-admin{background:var(--pdim);color:var(--purple);border-color:rgba(167,139,250,.2)}
+.b-client{background:#0a2e1c;color:#4ade80;border-color:rgba(74,222,128,.2)}
+.b-user{background:var(--bdim);color:var(--blue);border-color:rgba(59,130,246,.2)}
+.b-active{background:var(--gdim);color:var(--green);border-color:rgba(34,197,94,.2)}
+.b-revoked{background:var(--rdim);color:var(--red);border-color:rgba(239,68,68,.2)}
+
+/* ── Filter bar ── */
+.filters{display:flex;gap:8px;margin-bottom:14px;align-items:center}
+.filters input,.filters select{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r2);padding:7px 12px;font-size:13px;font-family:var(--font);color:var(--t);outline:none;transition:.12s}
+.filters input{flex:1}.filters input::placeholder{color:var(--t3)}
+.filters input:focus,.filters select:focus{border-color:var(--blue)}
+.filters select{cursor:pointer}
+
+/* ── Modal ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:flex-start;justify-content:center;padding-top:60px}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--bd2);border-radius:var(--r3);padding:28px;width:480px;max-width:96vw;max-height:88vh;overflow-y:auto}
+.modal-hd{font-size:16px;font-weight:500;margin-bottom:22px}
+.frow{margin-bottom:15px}
+.flabel{display:block;font-size:12px;color:var(--t2);margin-bottom:5px;font-weight:500}
+.finput{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r2);font-size:13px;font-family:var(--font);color:var(--t);outline:none;transition:.12s}
+.finput:focus{border-color:var(--blue)}
+.finput::placeholder{color:var(--t3)}
+select.finput{cursor:pointer}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:18px;border-top:1px solid var(--bd)}
+.err-msg{font-size:12px;color:var(--red);margin-top:6px;display:none}
+
+/* ── Key reveal ── */
+.key-box{background:var(--bg3);border:1px solid rgba(34,197,94,.25);border-radius:var(--r2);padding:16px;font-family:var(--mono);font-size:12px;word-break:break-all;color:var(--green);line-height:1.7;margin:14px 0}
+.key-warn{font-size:12px;color:var(--amber);background:var(--adim);border:1px solid rgba(245,158,11,.2);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;line-height:1.55}
+.key-details{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r2);padding:12px 16px;font-size:12px;color:var(--t2);margin-bottom:4px;display:grid;grid-template-columns:auto 1fr;gap:5px 14px}
+.key-details .kd-label{color:var(--t3)}
+.key-details .kd-val{font-family:var(--mono)}
+
+/* ── Log rows ── */
+.log-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:12px}
+.log-row:last-child{border-bottom:none}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:var(--green)}.dot-err{background:var(--red)}
+.log-ts{font-family:var(--mono);color:var(--t3);width:80px;flex-shrink:0}
+.log-ep{font-family:var(--mono);background:var(--bg3);border:1px solid var(--bd);padding:1px 7px;border-radius:3px;color:var(--t2)}
+.log-info{color:var(--t3);flex:1}
+.log-ms{font-family:var(--mono);color:var(--t3);margin-left:auto}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:11px 18px;font-size:13px;color:var(--t);z-index:999;transform:translateY(60px);opacity:0;transition:.2s;pointer-events:none;max-width:320px}
+.toast.on{transform:translateY(0);opacity:1}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:36px;color:var(--t3);font-size:13px}
+
+/* ── Agentic ── */
+.flow-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:26px}
+.flow-card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:18px}
+.flow-ico{font-size:20px;margin-bottom:10px}
+.flow-name{font-size:13px;font-weight:500;margin-bottom:5px}
+.flow-desc{font-size:12px;color:var(--t3);line-height:1.55}
+.flow-ep{font-size:10px;font-family:var(--mono);margin-top:10px}
+.live{color:var(--green)}.soon{color:var(--amber)}
+
+/* ── Role selector cards ── */
+.role-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
+.role-card{border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:.15s;position:relative}
+.role-card:hover{border-color:var(--bd2);background:var(--bg3)}
+.role-card.selected{border-color:var(--blue);background:var(--bdim)}
+.role-card input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+.role-card-name{font-size:13px;font-weight:500;margin-bottom:3px}
+.role-card-desc{font-size:11px;color:var(--t3);line-height:1.45}
+.role-card-tag{font-size:10px;font-family:var(--mono);margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside>
+    <div class="sb-logo">
+      <div class="sb-brand"><span class="sb-brand-dot"></span>YoWhats</div>
+      <div class="sb-sub">API Key Console</div>
+    </div>
+
+    <div class="sb-sec">Keys</div>
+    <div class="nav on" data-p="overview" onclick="go('overview',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Overview
+    </div>
+    <div class="nav" data-p="keys" onclick="go('keys',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="10" r="3"/><path d="M8.5 7.5l4-4M11 4l1.5 1.5M12.5 2.5L14 4"/></svg>
+      All Keys
+    </div>
+    <div class="nav" data-p="admins" onclick="go('admins',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l1.8 3.6L14 5.2l-3 2.9.7 4.1L8 10.1l-3.7 2.1.7-4.1-3-2.9 4.2-.6z"/></svg>
+      Admin Keys
+    </div>
+    <div class="nav" data-p="clients" onclick="go('clients',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="12" height="8" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+      Client Keys
+    </div>
+
+    <div class="sb-sec">Monitor</div>
+    <div class="nav" data-p="usage" onclick="go('usage',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1 11 5 6 9 9 13 3 15 5"/><path d="M1 15h14"/></svg>
+      Usage & Logs
+    </div>
+
+    <div class="sb-sec">Automate</div>
+    <div class="nav" data-p="agents" onclick="go('agents',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+      Agentic Flows
+    </div>
+
+    <div class="sb-foot">
+      <div class="sb-foot-status">
+        <span class="status-dot"></span>
+        <span id="sb-status">Connected</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-left">
+        <span class="tb-title" id="page-title">Overview</span>
+        <div class="spinner" id="spin"></div>
+      </div>
+      <div class="tb-right">
+        <span class="badge-role">admin console</span>
+        <button class="btn btn-primary" onclick="openCreate()">+ Generate Key</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ══ OVERVIEW ══ -->
+      <div class="page active" id="page-overview">
+        <div class="stats" id="stat-grid">
+          <div class="stat"><div class="stat-lbl">Total Keys</div><div class="stat-val" id="s-total">—</div><div class="stat-sub" id="s-new">—</div></div>
+          <div class="stat"><div class="stat-lbl">Admin Keys</div><div class="stat-val" id="s-admins">—</div><div class="stat-sub g">Platform access</div></div>
+          <div class="stat"><div class="stat-lbl">Client Keys</div><div class="stat-val" id="s-clients">—</div><div class="stat-sub g">RAG + AI access</div></div>
+          <div class="stat"><div class="stat-lbl">API Calls (30d)</div><div class="stat-val" id="s-calls">—</div><div class="stat-sub" id="s-ms">—</div></div>
+        </div>
+
+        <div class="charts">
+          <div class="chart-card">
+            <div class="chart-lbl">Daily API calls — 14 days</div>
+            <div style="position:relative;height:180px"><canvas id="lineChart" aria-label="Daily API calls"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-lbl">Keys by role</div>
+            <div style="display:flex;align-items:center;gap:18px;height:180px">
+              <div style="position:relative;height:150px;width:150px;flex-shrink:0"><canvas id="donutChart" aria-label="Keys by role"></canvas></div>
+              <div id="donut-legend" style="font-size:12px;display:flex;flex-direction:column;gap:9px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec-hd"><h3>Recent activity</h3><button class="btn btn-sm btn-ghost" onclick="go('keys',document.querySelector('[data-p=keys]'))">View all →</button></div>
+        <div class="tbl-box">
+          <table><thead><tr><th>Event</th><th>Key</th><th>Role</th><th>Label</th><th>When</th></tr></thead>
+          <tbody id="activity-body"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- ══ ALL KEYS ══ -->
+      <div class="page" id="page-keys">
+        <div class="filters">
+          <input type="text" placeholder="Search label or prefix…" oninput="filterKeys()" id="ks">
+          <select onchange="filterKeys()" id="kr"><option value="">All roles</option><option value="admin">Admin</option><option value="client">Client</option></select>
+          <select onchange="filterKeys()" id="kst"><option value="">All status</option><option value="active">Active</option><option value="revoked">Revoked</option></select>
+          <button class="btn btn-sm" onclick="loadKeys()">↻ Refresh</button>
+        </div>
+        <div class="tbl-box">
+          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Role</th><th>Status</th><th>Expires</th><th>Last used</th><th>Calls</th><th>Actions</th></tr></thead>
+          <tbody id="keys-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- ══ ADMIN KEYS ══ -->
+      <div class="page" id="page-admins">
+        <div style="background:var(--bdim);border:1px solid rgba(59,130,246,.2);border-radius:var(--r);padding:12px 16px;font-size:12px;color:var(--t2);margin-bottom:20px;line-height:1.6">
+          <strong style="color:var(--blue)">Admin keys</strong> have full platform access — they can call the RAG agent, web search, manage other keys, and use agentic flows (email, calendar).
+          Generate one for each team member or system that needs platform-level control.
+        </div>
+        <div class="sec-hd"><h3>Admin keys</h3><button class="btn btn-primary btn-sm" onclick="openCreate('admin')">+ New admin key</button></div>
+        <div class="tbl-box">
+          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Expires</th><th>Last used</th><th>Calls</th><th>Actions</th></tr></thead>
+          <tbody id="admins-body"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- ══ CLIENT KEYS ══ -->
+      <div class="page" id="page-clients">
+        <div style="background:var(--tdimcol);border:1px solid rgba(45,212,191,.15);border-radius:var(--r);padding:12px 16px;font-size:12px;color:var(--t2);margin-bottom:20px;line-height:1.6">
+          <strong style="color:var(--teal)">Client keys</strong> give access to the RAG LLM agent and web search only. Each client uses their key in their WhatsApp or backend integration to query your AI agents.
+        </div>
+        <div class="sec-hd"><h3>Client keys</h3><button class="btn btn-primary btn-sm" onclick="openCreate('client')">+ New client key</button></div>
+        <div class="tbl-box">
+          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Monthly limit</th><th>Expires</th><th>Last used</th><th>Calls (total)</th><th>Actions</th></tr></thead>
+          <tbody id="clients-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- ══ USAGE ══ -->
+      <div class="page" id="page-usage">
+        <div class="stats" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="stat"><div class="stat-lbl">Calls today</div><div class="stat-val" id="u-today">—</div><div class="stat-sub" id="u-today-s">—</div></div>
+          <div class="stat"><div class="stat-lbl">Error rate</div><div class="stat-val" id="u-err">—</div><div class="stat-sub" id="u-err-s">—</div></div>
+          <div class="stat"><div class="stat-lbl">Avg latency</div><div class="stat-val" id="u-ms">—</div><div class="stat-sub">per request</div></div>
+        </div>
+        <div class="chart-card" style="margin-bottom:26px">
+          <div class="chart-lbl">Hourly calls — today</div>
+          <div style="position:relative;height:180px"><canvas id="barChart" aria-label="Hourly requests"></canvas></div>
+        </div>
+        <div class="sec-hd"><h3>Live request log</h3><button class="btn btn-sm btn-ghost" onclick="loadLogs()">↻ Refresh</button></div>
+        <div style="border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px" id="log-list"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- ══ AGENTIC ══ -->
+      <div class="page" id="page-agents">
+        <p style="font-size:12px;color:var(--t3);margin-bottom:20px">Admin-key–only automation flows — backend: <span class="mono">routers/agentic_router.py</span></p>
+        <div class="flow-grid">
+          <div class="flow-card"><div class="flow-ico">📧</div><div class="flow-name">Email automation</div><div class="flow-desc">Send transactional or templated emails. Supports welcome, order confirm, promotional flows.</div><div class="flow-ep"><span class="live">● Live</span> — POST /admin/agent/email/send</div></div>
+          <div class="flow-card"><div class="flow-ico">📅</div><div class="flow-name">Google Calendar</div><div class="flow-desc">Create and update events, invite attendees, manage scheduling across timezones.</div><div class="flow-ep"><span class="live">● Live</span> — POST /admin/agent/calendar/create</div></div>
+          <div class="flow-card" style="opacity:.45"><div class="flow-ico">💬</div><div class="flow-name">WhatsApp broadcast</div><div class="flow-desc">Bulk WhatsApp messages to opted-in users via GoWhats API.</div><div class="flow-ep"><span class="soon">○ Coming soon</span></div></div>
+          <div class="flow-card" style="opacity:.45"><div class="flow-ico">🔄</div><div class="flow-name">CRM sync</div><div class="flow-desc">Sync customer data between MongoDB and external CRM systems.</div><div class="flow-ep"><span class="soon">○ Coming soon</span></div></div>
+          <div class="flow-card" style="opacity:.45"><div class="flow-ico">🤖</div><div class="flow-name">Multi-agent orchestration</div><div class="flow-desc">Chain AI agents for complex e-commerce automation workflows.</div><div class="flow-ep"><span class="soon">○ Coming soon</span></div></div>
+          <div class="flow-card" style="opacity:.3;border-style:dashed"><div class="flow-ico">＋</div><div class="flow-name">Custom flow</div><div class="flow-desc">Add your own workflow in agentic_router.py following the existing router pattern.</div><div class="flow-ep"><span class="soon">○ Developer preview</span></div></div>
+        </div>
+        <div class="sec-hd"><h3>Endpoints</h3></div>
+        <div class="tbl-box">
+          <table><thead><tr><th>Endpoint</th><th>Method</th><th>Requires</th><th>Backend file</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">/admin/agent/email/send</td><td><span class="badge b-admin">POST</span></td><td>Admin key</td><td class="mono">routers/agentic_router.py</td><td><span class="badge b-active">live</span></td></tr>
+            <tr><td class="mono">/admin/agent/email/templated</td><td><span class="badge b-admin">POST</span></td><td>Admin key</td><td class="mono">routers/agentic_router.py</td><td><span class="badge b-active">live</span></td></tr>
+            <tr><td class="mono">/admin/agent/calendar/create</td><td><span class="badge b-admin">POST</span></td><td>Admin key</td><td class="mono">routers/agentic_router.py</td><td><span class="badge b-active">live</span></td></tr>
+            <tr><td class="mono">/admin/agent/calendar/:id</td><td><span class="badge b-client">PATCH</span></td><td>Admin key</td><td class="mono">routers/agentic_router.py</td><td><span class="badge b-active">live</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- GENERATE KEY MODAL -->
+<div class="overlay" id="create-ov">
+  <div class="modal">
+    <div class="modal-hd" id="create-hd">Generate API key</div>
+
+    <div id="create-form">
+      <!-- Role selector cards -->
+      <div class="frow">
+        <label class="flabel">Key type</label>
+        <div class="role-cards">
+          <label class="role-card selected" id="rc-admin" onclick="pickRole('admin')">
+            <input type="radio" name="role" value="admin" checked>
+            <div class="role-card-name">Admin key</div>
+            <div class="role-card-desc">Full platform access — RAG, web search, agentic flows, key management</div>
+            <div class="role-card-tag"><span class="badge b-admin">admin</span></div>
+          </label>
+          <label class="role-card" id="rc-client" onclick="pickRole('client')">
+            <input type="radio" name="role" value="client">
+            <div class="role-card-name">Client key</div>
+            <div class="role-card-desc">RAG LLM agent + web search only — for WhatsApp or backend integrations</div>
+            <div class="role-card-tag"><span class="badge b-client">client</span></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="frow">
+        <label class="flabel">Label / name <span style="color:var(--red)">*</span></label>
+        <input class="finput" id="f-label" placeholder="e.g. Acme Corp, Dev Admin, WhatsApp Bot">
+      </div>
+
+      <div class="f2">
+        <div class="frow" style="margin:0">
+          <label class="flabel">Expires in (days)</label>
+          <input class="finput" id="f-expires" type="number" min="1" placeholder="Never">
+        </div>
+        <div class="frow" style="margin:0">
+          <label class="flabel">Monthly call limit</label>
+          <input class="finput" id="f-limit" type="number" min="1" placeholder="Unlimited">
+        </div>
+      </div>
+
+      <div class="frow" style="margin-top:14px">
+        <label class="flabel">Notes / metadata (optional JSON)</label>
+        <input class="finput" id="f-meta" placeholder='{"contact": "team@acme.com"}'>
+      </div>
+      <div class="err-msg" id="create-err"></div>
+    </div>
+
+    <!-- Key reveal section (shown after creation) -->
+    <div id="create-result" style="display:none">
+      <div class="key-warn">Save this key immediately — it cannot be shown again after you close this dialog.</div>
+      <div class="key-box" id="result-key"></div>
+      <div class="key-details" id="result-details"></div>
+      <button class="btn" onclick="copyKey()" style="width:100%;justify-content:center;margin-top:10px">Copy key to clipboard</button>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn" onclick="closeCreate()">Close</button>
+      <button class="btn btn-primary" id="gen-btn" onclick="doCreate()">
+        <span id="gen-txt">Generate key</span>
+        <span id="gen-spin" class="spinner" style="width:12px;height:12px"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- REVOKE MODAL -->
+<div class="overlay" id="revoke-ov">
+  <div class="modal" style="width:400px">
+    <div class="modal-hd">Revoke this key?</div>
+    <p style="font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:14px">This immediately invalidates the key. Any client or system using it will lose access. You can generate a replacement key afterwards.</p>
+    <div style="font-family:var(--mono);font-size:12px;background:var(--bg3);padding:10px 14px;border-radius:var(--r2);color:var(--t2)" id="revoke-disp"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeRevoke()">Cancel</button>
+      <button class="btn btn-danger" id="revoke-btn" onclick="doRevoke()">Revoke key</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROTATE MODAL -->
+<div class="overlay" id="rotate-ov">
+  <div class="modal">
+    <div class="modal-hd" id="rotate-hd">New key (rotated)</div>
+    <div class="key-warn">The old key has been revoked. Save the new key below — it cannot be shown again.</div>
+    <div class="key-box" id="rotate-key"></div>
+    <button class="btn" onclick="copyRotatedKey()" style="width:100%;justify-content:center">Copy key</button>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeRotate()">Done</button></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── state ──
+let _page = 'overview';
+let _allKeys = [];
+let _revokeId = '';
+let _generatedKey = '';
+let _rotatedKey = '';
+let _selectedRole = 'admin';
+
+// Chart instances
+let _line = null, _donut = null, _bar = null;
+
+// ── base URL — same origin as dashboard ──
+const BASE = '';   // empty = same host:port as this page
+
+// ── helpers ──────────────────────────────────────────────────────
+async function req(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE + path, opts);
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.detail || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
+function spin(on) {
+  document.getElementById('spin').style.display = on ? 'block' : 'none';
+}
+
+function toast(msg, err) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.color = err ? 'var(--red)' : 'var(--green)';
+  el.style.borderColor = err ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.2)';
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 3000);
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso), diff = Date.now() - d.getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 2)  return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return d.toLocaleDateString();
+}
+
+function roleBadge(r) {
+  const m = { admin: 'b-admin', client: 'b-client', user: 'b-user' };
+  return `<span class="badge ${m[r]||''}">${r}</span>`;
+}
+
+function statusBadge(active) {
+  return active
+    ? '<span class="badge b-active">active</span>'
+    : '<span class="badge b-revoked">revoked</span>';
+}
+
+// ── navigation ────────────────────────────────────────────────────
+const TITLES = { overview:'Overview', keys:'All Keys', admins:'Admin Keys', clients:'Client Keys', usage:'Usage & Logs', agents:'Agentic Flows' };
+
+function go(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav').forEach(n => n.classList.remove('on'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (el) el.classList.add('on');
+  else document.querySelector(`[data-p="${page}"]`)?.classList.add('on');
+  document.getElementById('page-title').textContent = TITLES[page] || page;
+  _page = page;
+  const loaders = { overview: loadOverview, keys: loadKeys, admins: loadAdmins, clients: loadClients, usage: loadUsage };
+  if (loaders[page]) loaders[page]();
+}
+
+// ── overview ──────────────────────────────────────────────────────
+async function loadOverview() {
+  spin(true);
+  try {
+    const [stats, daily, roles, act] = await Promise.all([
+      req('GET', '/dashboard/api/stats'),
+      req('GET', '/dashboard/api/chart/daily'),
+      req('GET', '/dashboard/api/chart/roles'),
+      req('GET', '/dashboard/api/activity?limit=8'),
+    ]);
+    // stats
+    document.getElementById('s-total').textContent   = stats.total;
+    document.getElementById('s-new').textContent     = `+${stats.new_month} this month`;
+    document.getElementById('s-admins').textContent  = stats.admins;
+    document.getElementById('s-clients').textContent = stats.clients;
+    document.getElementById('s-calls').textContent   = stats.calls_30d.toLocaleString();
+    document.getElementById('s-ms').textContent      = `avg ${stats.avg_ms}ms`;
+    // charts
+    buildLine(daily); buildDonut(roles);
+    // activity
+    const tb = document.getElementById('activity-body');
+    const ev = act.events || [];
+    if (!ev.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No activity yet</td></tr>'; }
+    else {
+      const col = { created: 'var(--green)', revoked: 'var(--red)', rotated: 'var(--amber)' };
+      tb.innerHTML = ev.map(e => `<tr>
+        <td style="color:${col[e.event]||'var(--t2)'};font-weight:500">${e.event}</td>
+        <td class="mono">${e.key_prefix||'—'}</td>
+        <td>${roleBadge(e.role||'—')}</td>
+        <td class="td-main">${e.label||'—'}</td>
+        <td style="color:var(--t3);font-size:12px">${fmtTime(e.ts)}</td>
+      </tr>`).join('');
+    }
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+function buildLine(d) {
+  const ctx = document.getElementById('lineChart').getContext('2d');
+  if (_line) _line.destroy();
+  _line = new Chart(ctx, {
+    type: 'line',
+    data: { labels: d.labels, datasets: [{ data: d.data, borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59,130,246,.1)', borderWidth: 1.5, pointRadius: 2, fill: true, tension: 0.4 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid:{color:'#232b3e'}, ticks:{color:'#444e62',maxRotation:0,autoSkip:true,maxTicksLimit:7} },
+                y: { grid:{color:'#232b3e'}, ticks:{color:'#444e62'}, beginAtZero:true } } }
+  });
+}
+
+function buildDonut(d) {
+  const ctx = document.getElementById('donutChart').getContext('2d');
+  if (_donut) _donut.destroy();
+  _donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels:['Client','Admin'],
+            datasets:[{data:[d.client,d.admin],backgroundColor:['#2dd4bf','#a78bfa'],borderWidth:0,hoverOffset:4}] },
+    options: { responsive:false, cutout:'68%', plugins:{legend:{display:false}} }
+  });
+  document.getElementById('donut-legend').innerHTML = [
+    ['#a78bfa','Admin', d.admin],
+    ['#2dd4bf','Client',d.client],
+  ].map(([c,l,n]) => `<span style="display:flex;align-items:center;gap:7px;color:var(--t2)">
+    <span style="width:10px;height:10px;border-radius:2px;background:${c};flex-shrink:0"></span>${l} — ${n}</span>`).join('');
+}
+
+// ── all keys ──────────────────────────────────────────────────────
+async function loadKeys() {
+  spin(true);
+  try {
+    const d = await req('GET', '/dashboard/api/keys');
+    _allKeys = d.keys || [];
+    renderKeyTable(_allKeys, 'keys-body',
+      k => `<td>${roleBadge(k.role)}</td>
+            <td>${statusBadge(k.is_active)}</td>
+            <td class="mono" style="font-size:11px">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
+            <td style="color:var(--t3);font-size:12px">${fmtTime(k.last_used_at)}</td>
+            <td class="mono">${(k.usage_count||0).toLocaleString()}</td>`,
+      ['Label','Key prefix','Role','Status','Expires','Last used','Calls','Actions']
+    );
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+function filterKeys() {
+  const s  = document.getElementById('ks').value.toLowerCase();
+  const r  = document.getElementById('kr').value;
+  const st = document.getElementById('kst').value;
+  let keys = _allKeys;
+  if (r)  keys = keys.filter(k => k.role === r);
+  if (st === 'active')  keys = keys.filter(k =>  k.is_active);
+  if (st === 'revoked') keys = keys.filter(k => !k.is_active);
+  if (s)  keys = keys.filter(k => (k.label||'').toLowerCase().includes(s) || (k.key_prefix||'').includes(s));
+  renderKeyTable(keys, 'keys-body',
+    k => `<td>${roleBadge(k.role)}</td>
+          <td>${statusBadge(k.is_active)}</td>
+          <td class="mono" style="font-size:11px">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
+          <td style="color:var(--t3);font-size:12px">${fmtTime(k.last_used_at)}</td>
+          <td class="mono">${(k.usage_count||0).toLocaleString()}</td>`,
+    []
+  );
+}
+
+// ── admin keys tab ────────────────────────────────────────────────
+async function loadAdmins() {
+  spin(true);
+  try {
+    const d = await req('GET', '/dashboard/api/keys?role=admin');
+    renderRoleTable(d.keys||[], 'admins-body', false);
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+// ── client keys tab ───────────────────────────────────────────────
+async function loadClients() {
+  spin(true);
+  try {
+    const d = await req('GET', '/dashboard/api/keys?role=client');
+    renderRoleTable(d.keys||[], 'clients-body', true);
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+// generic role table renderer
+function renderRoleTable(keys, tbodyId, showLimit) {
+  const tb = document.getElementById(tbodyId);
+  if (!keys.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">No keys yet — click "+ Generate Key" to create one</td></tr>`; return; }
+  tb.innerHTML = keys.map(k => `<tr>
+    <td class="td-main">${k.label||'—'}</td>
+    <td class="mono">${k.key_prefix||'—'}</td>
+    <td>${statusBadge(k.is_active)}</td>
+    ${showLimit ? `<td class="mono">${k.monthly_limit||'∞'}</td>` : ''}
+    <td class="mono" style="font-size:11px">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
+    <td style="color:var(--t3);font-size:12px">${fmtTime(k.last_used_at)}</td>
+    <td class="mono">${(k.usage_count||0).toLocaleString()}</td>
+    <td><div style="display:flex;gap:5px">
+      ${k.is_active
+        ? `<button class="btn btn-sm btn-danger" onclick="confirmRevoke('${k.key_id}','${k.key_prefix||k.key_id}','${k.label||''}')">Revoke</button>
+           <button class="btn btn-sm" onclick="doRotate('${k.key_id}')">Rotate</button>`
+        : `<span style="font-size:11px;color:var(--t3)">inactive</span>`
+      }
+    </div></td>
+  </tr>`).join('');
+}
+
+// generic all-keys table
+function renderKeyTable(keys, tbodyId, extraCols) {
+  const tb = document.getElementById(tbodyId);
+  if (!keys.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No keys found</td></tr>'; return; }
+  tb.innerHTML = keys.map(k => `<tr>
+    <td class="td-main">${k.label||'—'}</td>
+    <td class="mono">${k.key_prefix||'—'}</td>
+    ${typeof extraCols === 'function' ? extraCols(k) : ''}
+    <td><div style="display:flex;gap:5px">
+      ${k.is_active
+        ? `<button class="btn btn-sm btn-danger" onclick="confirmRevoke('${k.key_id}','${k.key_prefix||k.key_id}','${k.label||''}')">Revoke</button>
+           <button class="btn btn-sm" onclick="doRotate('${k.key_id}')">Rotate</button>`
+        : `<span style="font-size:11px;color:var(--t3)">inactive</span>`
+      }
+    </div></td>
+  </tr>`).join('');
+}
+
+// ── usage ─────────────────────────────────────────────────────────
+async function loadUsage() {
+  spin(true);
+  try {
+    const [hourly, logs] = await Promise.all([
+      req('GET', '/dashboard/api/chart/hourly'),
+      req('GET', '/dashboard/api/logs?limit=60'),
+    ]);
+    buildBar(hourly);
+    const ls = logs.logs || [];
+    const errs = ls.filter(l => !l.success).length;
+    const errPct = ls.length ? (errs/ls.length*100).toFixed(1) : '0';
+    const avgMs = ls.length ? Math.round(ls.reduce((a,l)=>a+(l.response_ms||0),0)/ls.length) : 0;
+    document.getElementById('u-today').textContent = ls.length;
+    document.getElementById('u-err').textContent   = errPct + '%';
+    document.getElementById('u-err-s').textContent = `${errs} errors`;
+    document.getElementById('u-ms').textContent    = avgMs + 'ms';
+    renderLogs(ls);
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+function buildBar(d) {
+  const ctx = document.getElementById('barChart').getContext('2d');
+  if (_bar) _bar.destroy();
+  _bar = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: d.labels, datasets:[{data:d.data,backgroundColor:'rgba(59,130,246,.6)',borderRadius:3,borderWidth:0}] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ x:{grid:{display:false},ticks:{color:'#444e62',autoSkip:true,maxTicksLimit:12}},
+               y:{grid:{color:'#232b3e'},ticks:{color:'#444e62'},beginAtZero:true} } }
+  });
+}
+
+function renderLogs(logs) {
+  const el = document.getElementById('log-list');
+  if (!logs.length) { el.innerHTML = '<div class="empty">No requests today yet</div>'; return; }
+  el.innerHTML = logs.map(l => {
+    const ts = l.ts ? new Date(l.ts).toTimeString().slice(0,8) : '';
+    return `<div class="log-row">
+      <div class="dot ${l.success!==false?'dot-ok':'dot-err'}"></div>
+      <span class="log-ts">${ts}</span>
+      <span class="log-ep">${l.endpoint||'—'}</span>
+      <span class="log-info">${l.intent||''} ${l.key_prefix?'· '+l.key_prefix:''}</span>
+      <span class="log-ms">${l.response_ms||0}ms</span>
+    </div>`;
+  }).join('');
+}
+
+function loadLogs() { if (_page === 'usage') loadUsage(); }
+
+// ── create key modal ──────────────────────────────────────────────
+function openCreate(presetRole) {
+  _selectedRole = presetRole || 'admin';
+  pickRole(_selectedRole);
+  document.getElementById('f-label').value   = '';
+  document.getElementById('f-expires').value = '';
+  document.getElementById('f-limit').value   = '';
+  document.getElementById('f-meta').value    = '';
+  document.getElementById('create-err').style.display = 'none';
+  document.getElementById('create-form').style.display   = 'block';
+  document.getElementById('create-result').style.display = 'none';
+  document.getElementById('gen-btn').style.display       = 'inline-flex';
+  document.getElementById('gen-txt').textContent         = 'Generate key';
+  document.getElementById('gen-spin').style.display      = 'none';
+  document.getElementById('create-hd').textContent       = 'Generate API key';
+  document.getElementById('create-ov').classList.add('open');
+  setTimeout(() => document.getElementById('f-label').focus(), 100);
+}
+
+function closeCreate() { document.getElementById('create-ov').classList.remove('open'); }
+
+function pickRole(role) {
+  _selectedRole = role;
+  document.getElementById('rc-admin').classList.toggle('selected', role === 'admin');
+  document.getElementById('rc-client').classList.toggle('selected', role === 'client');
+}
+
+async function doCreate() {
+  const label = document.getElementById('f-label').value.trim();
+  if (!label) { showErr('Label is required'); return; }
+
+  let metadata = null;
+  const metaRaw = document.getElementById('f-meta').value.trim();
+  if (metaRaw) {
+    try { metadata = JSON.parse(metaRaw); }
+    catch { showErr('Metadata must be valid JSON'); return; }
+  }
+
+  setGenLoading(true);
+  try {
+    const result = await req('POST', '/dashboard/api/keys', {
+      role:            _selectedRole,
+      label,
+      expires_in_days: parseInt(document.getElementById('f-expires').value) || null,
+      monthly_limit:   parseInt(document.getElementById('f-limit').value)   || null,
+      metadata,
+    });
+
+    _generatedKey = result.key;
+
+    // Show the key
+    document.getElementById('result-key').textContent = result.key;
+    document.getElementById('result-details').innerHTML = `
+      <span class="kd-label">key_id</span><span class="kd-val">${result.key_id}</span>
+      <span class="kd-label">role</span><span class="kd-val">${result.role}</span>
+      <span class="kd-label">label</span><span class="kd-val">${result.label}</span>
+      <span class="kd-label">expires</span><span class="kd-val">${result.expires_at || 'Never'}</span>
+      <span class="kd-label">limit/month</span><span class="kd-val">${result.monthly_limit || '∞'}</span>
+    `;
+    document.getElementById('create-form').style.display   = 'none';
+    document.getElementById('create-result').style.display = 'block';
+    document.getElementById('gen-btn').style.display       = 'none';
+    document.getElementById('create-hd').textContent       = '🔑 Key generated — save it now';
+    toast('Key created successfully');
+
+    // Refresh whatever page is active
+    if (_page === 'overview') loadOverview();
+    else if (_page === 'admins')  loadAdmins();
+    else if (_page === 'clients') loadClients();
+    else if (_page === 'keys')    loadKeys();
+
+  } catch(e) { showErr(e.message); }
+  setGenLoading(false);
+}
+
+function copyKey() {
+  if (navigator.clipboard && _generatedKey) navigator.clipboard.writeText(_generatedKey);
+  toast('Key copied to clipboard');
+}
+
+function showErr(msg) {
+  const el = document.getElementById('create-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function setGenLoading(on) {
+  document.getElementById('gen-btn').disabled      = on;
+  document.getElementById('gen-txt').textContent   = on ? 'Generating…' : 'Generate key';
+  document.getElementById('gen-spin').style.display = on ? 'block' : 'none';
+}
+
+// ── revoke ────────────────────────────────────────────────────────
+function confirmRevoke(keyId, prefix, label) {
+  _revokeId = keyId;
+  document.getElementById('revoke-disp').textContent = `${prefix} — ${label}`;
+  document.getElementById('revoke-ov').classList.add('open');
+}
+function closeRevoke() { document.getElementById('revoke-ov').classList.remove('open'); }
+
+async function doRevoke() {
+  const btn = document.getElementById('revoke-btn');
+  btn.disabled = true; btn.textContent = 'Revoking…';
+  try {
+    await req('POST', `/dashboard/api/keys/${_revokeId}/revoke`);
+    toast('Key revoked');
+    closeRevoke();
+    const reloaders = { keys: loadKeys, admins: loadAdmins, clients: loadClients, overview: loadOverview };
+    if (reloaders[_page]) reloaders[_page]();
+  } catch(e) { toast(e.message, true); }
+  btn.disabled = false; btn.textContent = 'Revoke key';
+}
+
+// ── rotate ────────────────────────────────────────────────────────
+async function doRotate(keyId) {
+  if (!confirm('Rotate this key? The current key will be revoked immediately and a new one issued.')) return;
+  spin(true);
+  try {
+    const result = await req('POST', `/dashboard/api/keys/${keyId}/rotate`);
+    _rotatedKey = result.key;
+    document.getElementById('rotate-key').textContent = result.key;
+    document.getElementById('rotate-hd').textContent = `🔑 New key for "${result.label}" — save it now`;
+    document.getElementById('rotate-ov').classList.add('open');
+    toast('Key rotated');
+    const reloaders = { keys: loadKeys, admins: loadAdmins, clients: loadClients, overview: loadOverview };
+    if (reloaders[_page]) reloaders[_page]();
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+function copyRotatedKey() {
+  if (navigator.clipboard && _rotatedKey) navigator.clipboard.writeText(_rotatedKey);
+  toast('Key copied');
+}
+
+function closeRotate() { document.getElementById('rotate-ov').classList.remove('open'); }
+
+// ── boot ──────────────────────────────────────────────────────────
+loadOverview();
+setInterval(() => { if (_page === 'usage') loadLogs(); }, 30000);
+</script>
+</body>
+</html>
