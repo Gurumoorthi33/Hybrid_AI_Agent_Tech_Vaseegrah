@@ -1,0 +1,96 @@
+{
+  "name": "Warehouse Pick & Place Workflow",
+  "generated_by": "FlowBot HMI",
+  "ros2_package": "robot_workflows",
+  "nodes": [
+    {
+      "id": "1",
+      "type": "startNode",
+      "label": "Trigger: Manual",
+      "position": {
+        "x": 200,
+        "y": 40
+      }
+    },
+    {
+      "id": "2",
+      "type": "moveToNode",
+      "label": "Waypoint A — Shelf 3",
+      "position": {
+        "x": 200,
+        "y": 140
+      }
+    },
+    {
+      "id": "3",
+      "type": "pickObjectNode",
+      "label": "Gripper A — 2.4 kg",
+      "position": {
+        "x": 200,
+        "y": 240
+      }
+    },
+    {
+      "id": "4",
+      "type": "checkSensorNode",
+      "label": "Obstacle detected?",
+      "position": {
+        "x": 200,
+        "y": 340
+      }
+    },
+    {
+      "id": "5",
+      "type": "moveToNode",
+      "label": "Waypoint B — Drop Zone",
+      "position": {
+        "x": 200,
+        "y": 440
+      }
+    },
+    {
+      "id": "6",
+      "type": "dropObjectNode",
+      "label": "Release gripper",
+      "position": {
+        "x": 200,
+        "y": 540
+      }
+    },
+    {
+      "id": "7",
+      "type": "endNode",
+      "label": "Workflow complete",
+      "position": {
+        "x": 200,
+        "y": 640
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "1",
+      "to": "2"
+    },
+    {
+      "from": "2",
+      "to": "3"
+    },
+    {
+      "from": "3",
+      "to": "4"
+    },
+    {
+      "from": "4",
+      "to": "5"
+    },
+    {
+      "from": "5",
+      "to": "6"
+    },
+    {
+      "from": "6",
+      "to": "7"
+    }
+  ]
+}
