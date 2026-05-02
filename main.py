@@ -23,7 +23,7 @@ _graph  = build_graph()
 _memory = MongoMemory()
 
 
-def run_query(query: str, user_id: str = "default_user", api_key: str | None = None) -> dict:
+def run_query(query: str, user_id: str = "default_user", api_key: str | None = None, website_url: str | None = None) -> dict:
     """
     Run a single query through the full agent pipeline.
 
@@ -41,6 +41,7 @@ def run_query(query: str, user_id: str = "default_user", api_key: str | None = N
         "user_id":      user_id,
         "session_id":   session_id,
         "api_key":      api_key,
+        "website_url":  website_url,
         # intermediate — initialised empty
         "intent":       "",
         "rag_result":   {"docs": [], "sources": [], "distances": [], "confidence": "low", "best_dist": 9999.0},

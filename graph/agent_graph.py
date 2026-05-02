@@ -1,27 +1,6 @@
 """
 graph/agent_graph.py
 LangGraph orchestration — ReAct-style pipeline with 3-band RAG routing.
-
-Pipeline:
-  User Query
-    → [domain_guard]         — hard-block off-topic queries
-    → [load_memory]          — inject MongoDB conversation history
-    → [intent_classifier]    — classify intent (keyword + LLM fallback)
-    → [rag_retriever]        — search default KB + customer KB (if any)
-    → [rag_router]           ─── 3-way routing on RAG confidence band:
-         │ "high"   ──────────────────────────────────► [generator]
-         │ "fair"   ──► [web_search] ──► [merge] ──────► [generator]
-         └ "low"    ──► [web_search] ──────────────────► [generator]
-    → [save_memory]          — persist turn + ReAct trace to MongoDB
-    → END
-
-Confidence bands (set in config/settings.py):
-  high  L2 dist ≤ 1.5   RAG is sufficient
-  fair  L2 dist ≤ 2.5   RAG + web enrichment
-  low   L2 dist > 2.5   web search only
-
-Multi-tenant: api_key is threaded through state so retriever_agent
-searches both the shared default KB and the customer's private KB.
 """
 
 import os
@@ -44,23 +23,17 @@ from config.settings          import ANTHROPIC_API_KEY
 # ── State schema ──────────────────────────────────────────────────
 
 class AgentState(TypedDict):
-    # ── inputs ──────────────────────────────
-    query:      str
-    user_id:    str
-    session_id: str
-    api_key:    Optional[str]   # customer API key (None = no private RAG)
-
-    # ── intermediate ────────────────────────
-    intent:      str
-    rag_result:  dict
-    web_result:  dict
-    rag_band:    str            # "high" | "fair" | "low"
-    history:     list[dict]
-
-    # ── ReAct trace ─────────────────────────
-    thoughts:    list[str]
-
-    # ── outputs ─────────────────────────────
+    query:        str
+    user_id:      str
+    session_id:   str
+    api_key:      Optional[str]
+    website_url:  Optional[str]
+    intent:       str
+    rag_result:   dict
+    web_result:   dict
+    rag_band:     str
+    history:      list[dict]
+    thoughts:     list[str]
     answer:       str
     blocked:      bool
     block_reason: str
@@ -73,6 +46,19 @@ _memory = MongoMemory()
 
 _EMPTY_RAG = {"docs": [], "sources": [], "distances": [], "confidence": "low", "best_dist": 9999.0}
 _EMPTY_WEB = {"docs": [], "sources": [], "confidence": 0.0}
+
+
+# ── Price keyword detection ───────────────────────────────────────
+
+PRICE_KEYWORDS = [
+    "price", "cost", "rate", "how much", "rs", "rupee",
+    "rupees", "amount", "charge", "offer", "discount",
+    "stock", "available", "in stock"
+]
+
+def _is_price_query(query: str) -> bool:
+    q = query.lower()
+    return any(kw in q for kw in PRICE_KEYWORDS)
 
 
 # ── Node: Domain Guard ────────────────────────────────────────────
@@ -101,11 +87,10 @@ def load_memory_node(state: AgentState) -> AgentState:
 def intent_node(state: AgentState) -> AgentState:
     intent, score = classify_intent(state["query"])
     if score == 0:
-        # Zero keyword hits → use LLM
         intent = llm_classify(state["query"], _client)
-        state["thoughts"].append(f"[Intent] LLM classified → {intent}")
+        state["thoughts"].append(f"[Intent] LLM classified -> {intent}")
     else:
-        state["thoughts"].append(f"[Intent] keyword classified → {intent} (score={score})")
+        state["thoughts"].append(f"[Intent] keyword classified -> {intent} (score={score})")
     state["intent"] = intent
     return state
 
@@ -118,20 +103,20 @@ def rag_node(state: AgentState) -> AgentState:
         api_key = state.get("api_key"),
     )
     state["rag_result"] = result
-    state["rag_band"]   = result["confidence"]   # "high" | "fair" | "low"
+    state["rag_band"]   = result["confidence"]
     state["thoughts"].append(
         f"[RAG] band={result['confidence']} "
         f"best_dist={result['best_dist']:.3f} "
         f"docs={len(result['docs'])}"
     )
     _memory.save_checkpoint(state["user_id"], state["session_id"], {
-        "action":     "rag_retrieve",
-        "input":      state["query"],
-        "intent":     state["intent"],
-        "band":       result["confidence"],
-        "best_dist":  result["best_dist"],
-        "doc_count":  len(result["docs"]),
-        "sources":    result["sources"],
+        "action":    "rag_retrieve",
+        "input":     state["query"],
+        "intent":    state["intent"],
+        "band":      result["confidence"],
+        "best_dist": result["best_dist"],
+        "doc_count": len(result["docs"]),
+        "sources":   result["sources"],
     })
     return state
 
@@ -141,27 +126,34 @@ def rag_node(state: AgentState) -> AgentState:
 def rag_router(state: AgentState) -> str:
     if state.get("blocked"):
         return "end"
-    band = state.get("rag_band", "low")
-    # "high" → generate straight from RAG (no web call needed)
-    # "fair" → RAG + web enrichment
-    # "low"  → web search only
-    if band == "high":
-        return "generate"
-    return "web_search"     # handles both "fair" and "low"
+
+    band  = state.get("rag_band", "low")
+    query = state.get("query", "")
+
+    # Web search only when:
+    # 1. RAG confidence is not high (KB does not have enough info)
+    # 2. OR customer is asking about price/stock
+    if band != "high" or _is_price_query(query):
+        state["thoughts"].append(
+            f"[Router] web_search - band={band}, price={_is_price_query(query)}"
+        )
+        return "web_search"
+
+    state["thoughts"].append(f"[Router] generate direct - band=high, no price query")
+    return "generate"
 
 
 # ── Node: Web Search ──────────────────────────────────────────────
 
 def web_search_node(state: AgentState) -> AgentState:
-    band = state.get("rag_band", "low")
-    state["thoughts"].append(
-        f"[WebSearch] triggered — RAG band={band}. Running Tavily search."
+    result = web_search_team(
+        state["query"],
+        _client,
+        website_url=state.get("website_url")
     )
-    result = web_search_team(state["query"], _client)
     state["web_result"] = result
     state["thoughts"].append(
-        f"[WebSearch] got {len(result['docs'])} results "
-        f"conf={result['confidence']}"
+        f"[WebSearch] got {len(result['docs'])} results conf={result['confidence']}"
     )
     _memory.save_checkpoint(state["user_id"], state["session_id"], {
         "action":     "web_search",
@@ -176,13 +168,9 @@ def web_search_node(state: AgentState) -> AgentState:
 # ── Node: Generate ────────────────────────────────────────────────
 
 def generate_node(state: AgentState) -> AgentState:
-    # For "fair" band: combine RAG + web
-    # For "high" band: only RAG (web_result will be empty)
-    # For "low" band:  only web (rag_result docs may be weak but still passed)
     rag_result = state.get("rag_result", _EMPTY_RAG)
     web_result = state.get("web_result", _EMPTY_WEB)
 
-    # For "low" band, don't pass noisy RAG docs to the generator
     if state.get("rag_band") == "low":
         rag_result = _EMPTY_RAG
 
@@ -206,12 +194,12 @@ def save_memory_node(state: AgentState) -> AgentState:
         _memory.add_message(state["user_id"], state["session_id"], "user",      state["query"])
         _memory.add_message(state["user_id"], state["session_id"], "assistant", state["answer"])
         _memory.save_checkpoint(state["user_id"], state["session_id"], {
-            "action":       "final_answer",
-            "input":        state["query"],
-            "output":       state["answer"],
-            "intent":       state.get("intent", ""),
-            "rag_band":     state.get("rag_band", ""),
-            "react_trace":  state.get("thoughts", []),
+            "action":      "final_answer",
+            "input":       state["query"],
+            "output":      state["answer"],
+            "intent":      state.get("intent", ""),
+            "rag_band":    state.get("rag_band", ""),
+            "react_trace": state.get("thoughts", []),
         })
     return state
 
@@ -221,13 +209,13 @@ def save_memory_node(state: AgentState) -> AgentState:
 def build_graph():
     g = StateGraph(AgentState)
 
-    g.add_node("domain_guard",  domain_guard_node)
-    g.add_node("load_memory",   load_memory_node)
-    g.add_node("intent",        intent_node)
-    g.add_node("rag",           rag_node)
-    g.add_node("web_search",    web_search_node)
-    g.add_node("generate",      generate_node)
-    g.add_node("save_memory",   save_memory_node)
+    g.add_node("domain_guard", domain_guard_node)
+    g.add_node("load_memory",  load_memory_node)
+    g.add_node("intent",       intent_node)
+    g.add_node("rag",          rag_node)
+    g.add_node("web_search",   web_search_node)
+    g.add_node("generate",     generate_node)
+    g.add_node("save_memory",  save_memory_node)
 
     g.set_entry_point("domain_guard")
 

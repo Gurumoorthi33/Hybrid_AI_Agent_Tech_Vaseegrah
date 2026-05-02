@@ -26,9 +26,9 @@ _memory = MongoMemory()
 # ── Request / Response ────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    user_id:  str             # end-user identifier (e.g. WhatsApp number)
-    message:  str
-
+    user_id:     str
+    message:     str
+    website_url: Optional[str] = None
 
 class ChatResponse(BaseModel):
     answer:     str
@@ -65,6 +65,7 @@ async def chat(
             query   = req.message,
             user_id = req.user_id,
             api_key = rag_api_key,
+            website_url = req.website_url,
         )
         success = True
         error   = ""

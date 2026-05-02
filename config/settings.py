@@ -21,8 +21,8 @@ MONGO_VECTOR_COLLECTION     = "rag_vectors"
 # Anthropic / Claude
 # ─────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL      = "claude-3-haiku-20240307"
-CLAUDE_MAX_TOKENS = 800          # raised for complete product-list answers
+CLAUDE_MODEL      = "claude-haiku-4-5-20251001"
+CLAUDE_MAX_TOKENS = 300          # raised for complete product-list answers
 
 # ─────────────────────────────────────────────
 # Vector Store (FAISS) — paths

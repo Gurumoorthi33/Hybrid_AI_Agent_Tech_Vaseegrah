@@ -33,34 +33,32 @@ def _get_tavily() -> TavilyClient:
 
 # ─────────────────────── Search Sub-Agent ───────────────────────
 
-def search_web(query: str, max_results: int = 5) -> list[dict]:
-    """
-    Calls Tavily and returns list of:
-      { "title": str, "url": str, "content": str, "score": float }
-
-    Tavily already returns clean extracted content — no scraping needed.
-    """
+def search_web(query: str, max_results: int = 5, website_url: str = None) -> list[dict]:
     try:
         tavily = _get_tavily()
-        response = tavily.search(
-            query=query,
-            max_results=max_results,
-            search_depth="advanced",     # deep extraction
-            include_answer=False,        # we do our own summarization
-            include_raw_content=False,   # clean content is enough
-        )
+        params = {
+            "query":               query,
+            "max_results":         max_results,
+            "search_depth":        "advanced",
+            "include_answer":      False,
+            "include_raw_content": False,
+        }
+        if website_url:
+            params["include_domains"] = [website_url]
+        response = tavily.search(**params)
         results = []
         for r in response.get("results", []):
             results.append({
                 "title":   r.get("title", ""),
                 "url":     r.get("url", ""),
-                "content": r.get("content", ""),   # Tavily pre-extracts this
-                "score":   r.get("score", 0.0),    # Tavily relevance score
+                "content": r.get("content", ""),
+                "score":   r.get("score", 0.0),
             })
         return results
     except Exception as e:
-        print(f"⚠️  Tavily search failed: {e}")
+        print(f"Tavily search failed: {e}")
         return []
+
 
 
 # ─────────────────────── Summarizer Sub-Agent ───────────────────
@@ -112,7 +110,7 @@ def validate_result(query: str, summary: str, tavily_score: float) -> tuple[bool
 
 # ─────────────────────── Orchestrator ───────────────────────────
 
-def web_search_team(query: str, client) -> dict:
+def web_search_team(query: str, client, website_url: str = None) -> dict:
     """
     Full Tavily-powered web search pipeline:
       1. Tavily Search  → clean results with relevance scores
@@ -127,7 +125,7 @@ def web_search_team(query: str, client) -> dict:
             "confidence": float,
         }
     """
-    search_results = search_web(query, max_results=5)
+    search_results = search_web(query, max_results=5, website_url=website_url)
     if not search_results:
         return {"docs": [], "sources": [], "confidence": 0.0}
 

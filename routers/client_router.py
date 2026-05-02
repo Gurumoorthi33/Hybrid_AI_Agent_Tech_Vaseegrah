@@ -45,7 +45,6 @@ async def create_user_key(
     km:     KeyManager = Depends(get_key_manager),
 ):
     """Create a user-level API key scoped to this client."""
-    # client_id = the calling client's own key_id
     client_id = caller.key_id if caller.role == "client" else body.metadata.get("client_id") if body.metadata else None
     if not client_id:
         raise HTTPException(400, "client_id could not be determined")
@@ -101,7 +100,6 @@ async def revoke_user_key(
     if not doc:
         raise HTTPException(404, "Key not found")
 
-    # Clients can only revoke their own users
     if caller.role == "client" and doc.get("client_id") != caller.key_id:
         raise HTTPException(403, "You can only revoke user keys that belong to your account")
 
@@ -135,7 +133,7 @@ async def ingest_rag_file(
     Upload a custom RAG knowledge file for this client.
     The file is ingested into data/customers/<key_id>/ — isolated per client.
     """
-    allowed_exts = {".txt", ".pdf", ".md"}
+    allowed_exts = {".txt", ".pdf", ".md", ".csv"}
     ext = os.path.splitext(file.filename or "")[-1].lower()
     if ext not in allowed_exts:
         raise HTTPException(400, f"Unsupported file type '{ext}'. Allowed: {allowed_exts}")
@@ -145,7 +143,7 @@ async def ingest_rag_file(
         tmp_path = tmp.name
 
     try:
-        ingest_customer_file(caller.key_id, tmp_path)
+        doc_count = ingest_customer_file(caller.key_id, tmp_path)
     finally:
         os.unlink(tmp_path)
 
@@ -153,4 +151,5 @@ async def ingest_rag_file(
         "status":  "ok",
         "message": f"File '{file.filename}' ingested into your private knowledge base.",
         "key_id":  caller.key_id,
+        "chunks":  doc_count,
     }

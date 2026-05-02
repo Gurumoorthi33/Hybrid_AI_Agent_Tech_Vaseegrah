@@ -108,7 +108,7 @@ def ingest_default():
 
 # ── ingest customer file ──────────────────────────────────────────
 
-def ingest_customer_file(api_key: str, file_path: str):
+def ingest_customer_file(api_key: str, file_path: str) -> int:
     """Ingest a single file into a customer's private vector store."""
     cust_dir   = os.path.join(CUSTOMER_RAG_BASE, api_key)
     index_path = os.path.join(cust_dir, "index.bin")
@@ -121,8 +121,10 @@ def ingest_customer_file(api_key: str, file_path: str):
     if docs:
         vs.add_documents(docs)
         print(f"✅ Customer KB updated. {len(docs)} chunks added.")
+        return len(docs)
     else:
         print("⚠️  No content extracted from file.")
+        return 0
 
 
 # ── CLI entry ─────────────────────────────────────────────────────
