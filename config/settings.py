@@ -1,6 +1,6 @@
 """
 YoWhats Agent — Central Configuration
-Load secrets from .env; all other values are tunable constants here.
+All secrets and tunable values. Loaded from .env first, then defaults.
 """
 
 import os
@@ -10,8 +10,11 @@ load_dotenv()
 # ─────────────────────────────────────────────
 # MongoDB
 # ─────────────────────────────────────────────
-MONGO_URI = os.getenv("MONGO_URI", "")
-MONGO_DB_NAME = "gowhats"
+MONGO_URI = os.getenv(
+    "MONGO_URI",
+    "mongodb+srv://techvaseegrah:gowhats%24tech2k25@gowhats.toqv1xm.mongodb.net/gowhats?retryWrites=true&w=majority&appName=Gowhats"
+)
+MONGO_DB_NAME               = "gowhats"
 MONGO_CONV_COLLECTION       = "conversations"
 MONGO_SESSION_COLLECTION    = "sessions"
 MONGO_CHECKPOINT_COLLECTION = "checkpoints"
@@ -19,23 +22,37 @@ MONGO_VECTOR_COLLECTION     = "rag_vectors"
 
 # ─────────────────────────────────────────────
 # Anthropic / Claude
+# Model name is read from .env — change it there without touching code.
+#
+# ACTIVE models (May 2026):
+#   claude-haiku-4-5-20251001    ← fastest, cheapest  ✅ DEFAULT
+#   claude-sonnet-4-5-20250929   ← balanced
+#   claude-sonnet-4-6            ← latest balanced
+#   claude-opus-4-6              ← most capable
+#
+# RETIRED (will 404):
+#   claude-3-haiku-20240307      ← retired Feb 2026
+#   claude-3-5-haiku-20241022    ← retired Feb 2026
+#   claude-3-5-sonnet-20241022   ← retired Jan 2026
 # ─────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+<<<<<<< HEAD
 CLAUDE_MODEL      = "claude-haiku-4-5-20251001"
 CLAUDE_MAX_TOKENS = 300          # raised for complete product-list answers
+=======
+CLAUDE_MODEL      = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "800"))
+>>>>>>> d1cf4b9 (EC2 local changes)
 
 # ─────────────────────────────────────────────
-# Vector Store (FAISS) — paths
+# Vector Store (FAISS)
 # ─────────────────────────────────────────────
-EMBED_MODEL = "all-MiniLM-L6-v2"
-TOP_K       = 6          # retrieve more chunks so product lists are complete
+EMBED_MODEL       = "all-MiniLM-L6-v2"
+TOP_K             = 6
 
-# Default (shared) company knowledge base — always loaded for every user
 DEFAULT_RAG_DIR   = "data/default"
 DEFAULT_INDEX     = "data/default/index.bin"
 DEFAULT_DOCS      = "data/default/docs.pkl"
-
-# Per-customer RAG base path — data/customers/<api_key>/
 CUSTOMER_RAG_BASE = "data/customers"
 
 # ─────────────────────────────────────────────
@@ -45,34 +62,34 @@ TAVILY_API_KEY     = os.getenv("TAVILY_API_KEY", "")
 TAVILY_MAX_RESULTS = 5
 
 # ─────────────────────────────────────────────
-# Agent behaviour — RAG confidence bands (L2 distance)
+# Dashboard Security (no custom domain)
 # ─────────────────────────────────────────────
-# all-MiniLM-L6-v2 typical distances: 0.3–1.2 = good, 1.5–2.5 = fair, >2.5 = poor
-RAG_DISTANCE_GOOD   = 1.5    # ≤ 1.5 → high confidence, skip web
-RAG_DISTANCE_FAIR   = 2.5    # ≤ 2.5 → use RAG + also run web for enrichment
-                              # > 2.5 → RAG weak, rely on web
+DASHBOARD_TOKEN = os.getenv("DASHBOARD_TOKEN", "change-me-set-in-env")
 
-MAX_RETRIES = 3
+# ─────────────────────────────────────────────
+# RAG confidence bands (L2 distance thresholds)
+# ─────────────────────────────────────────────
+RAG_DISTANCE_GOOD = 1.5
+RAG_DISTANCE_FAIR = 2.5
+MAX_RETRIES       = 3
 
-# Domain keywords — any match = allow query through domain guard
+# ─────────────────────────────────────────────
+# Domain keywords
+# ─────────────────────────────────────────────
 DOMAIN_KEYWORDS = [
-    # products
     "hair", "skin", "face", "oil", "mask", "powder", "pack", "shampoo",
     "herbal", "organic", "natural", "ayurvedic", "bath", "cleanser",
     "henna", "indigo", "hibiscus", "moringa", "amla", "castor",
     "coconut", "groundnut", "almond", "flaxseed", "eyebrow",
     "tooth", "mouth", "tea", "soup", "hydrosol", "kajal", "loofah",
-    # commerce
     "buy", "purchase", "price", "cost", "rate", "stock", "available",
     "discount", "offer", "return", "refund", "shipping", "track",
     "delivery", "order", "invoice", "payment", "cod", "wallet",
     "product", "ingredients", "how to use", "apply", "benefits",
     "booking", "book", "catalog", "more products", "list", "show me",
-    # company
     "vaseegrah", "veda", "yowhats", "gowhats", "founder", "store",
     "company", "location", "address", "hours", "contact", "website",
     "register", "msme", "license",
-    # general intent words — short queries often use only these
     "what", "which", "how", "where", "when", "tell me", "give me",
     "show", "list", "help", "more", "other", "another",
 ]

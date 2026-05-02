@@ -151,6 +151,10 @@ def web_search_node(state: AgentState) -> AgentState:
         _client,
         website_url=state.get("website_url")
     )
+<<<<<<< HEAD
+=======
+    result = web_search_team(state["query"], _client, intent=state.get("intent", ""))
+>>>>>>> d1cf4b9 (EC2 local changes)
     state["web_result"] = result
     state["thoughts"].append(
         f"[WebSearch] got {len(result['docs'])} results conf={result['confidence']}"
