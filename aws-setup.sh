@@ -196,7 +196,8 @@ echo "    --region $AWS_REGION \\"
 echo "    --secret-string '{"
 echo "      \"ANTHROPIC_API_KEY\": \"sk-ant-...\","
 echo "      \"TAVILY_API_KEY\": \"tvly-dev-...\","
-echo "      \"MONGO_URI\": \"mongodb+srv://...\""
+echo "      \"MONGO_URI\": \"mongodb+srv://...\","
+echo "      \"MONGO_DB_NAME\": \"agenticchatbot\""
 echo "    }'"
 
 # ── 6. Summary ───────────────────────────────────────────────────

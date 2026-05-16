@@ -6,6 +6,7 @@ Only hard-block clearly off-topic and harmful topics.
 """
 
 from config.settings import DOMAIN_KEYWORDS
+from agents.language_agent import detect_language_profile
 
 # Absolute hard blocks — never answer these
 HARD_BLOCKED = [
@@ -38,6 +39,13 @@ def is_in_domain(query: str) -> tuple[bool, str]:
 
     # Short queries always pass
     if len(query.split()) <= 5:
+        return True, ""
+
+    # Multilingual/code-mixed messages should pass to the LLM/RAG pipeline.
+    # Keyword-only filtering is too brittle for Tamil+English, French+English,
+    # Spanish+English, Japanese+English, etc.
+    profile = detect_language_profile(query)
+    if profile.get("is_mixed_language") or profile.get("primary_language") != "english":
         return True, ""
 
     # Any domain keyword present → allow

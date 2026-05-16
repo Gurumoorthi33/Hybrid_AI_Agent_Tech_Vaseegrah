@@ -72,6 +72,31 @@ class VectorStore:
         self._save()
         print(f"✅ [{self._label}] added {len(texts)} docs → total {len(self._docs)}")
 
+    def replace_documents(self, texts: list[str]):
+        """Replace this store with a freshly embedded document set."""
+        self._index = None
+        self._docs = []
+
+        if not texts:
+            self.clear()
+            print(f"✅ [{self._label}] cleared; no docs to store")
+            return
+
+        model = _get_model()
+        embeddings = model.encode(texts, show_progress_bar=False).astype("float32")
+        self._index = faiss.IndexFlatL2(embeddings.shape[1])
+        self._index.add(embeddings)
+        self._docs = list(texts)
+        self._save()
+        print(f"✅ [{self._label}] rebuilt with {len(self._docs)} docs")
+
+    def clear(self):
+        self._index = None
+        self._docs = []
+        for path in (self._index_path, self._docs_path):
+            if os.path.exists(path):
+                os.remove(path)
+
     # ── read ──────────────────────────────────────────────────────
 
     def search(self, query: str, k: int = TOP_K) -> list[tuple[str, float]]:

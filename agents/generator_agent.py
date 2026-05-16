@@ -62,6 +62,7 @@ def generate_response(
     history: list,
     intent: str,
     client,
+    language_profile: dict | None = None,
     system_prompt: str = None,
 ) -> str:
     context = _build_context(
@@ -75,6 +76,14 @@ def generate_response(
         intent,
         "Answer the customer question in 2-3 lines using the context."
     )
+    language_guide = ""
+    if language_profile:
+        language_guide = (
+            f"[Language profile] {language_profile.get('response_mode', '')}\n"
+            f"Detected languages: {', '.join(language_profile.get('detected_languages', ['english']))}.\n"
+            "Do not translate product names, URLs, API names, order IDs, or exact business terms. "
+            "If the user mixes languages, reply with the same natural mix.\n\n"
+        )
 
     messages = []
     for turn in history[-6:]:
@@ -84,6 +93,7 @@ def generate_response(
         user_content = (
             f"[Intent: {intent}]\n"
             f"[Instructions] {intent_guide}\n\n"
+            f"{language_guide}"
             f"[Context]\n{context}\n\n"
             f"[Customer] {query}"
         )
@@ -91,6 +101,7 @@ def generate_response(
         user_content = (
             f"[Intent: {intent}]\n"
             f"[Instructions] {intent_guide}\n\n"
+            f"{language_guide}"
             f"[Customer] {query}"
         )
 

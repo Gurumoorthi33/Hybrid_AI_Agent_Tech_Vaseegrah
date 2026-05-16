@@ -17,19 +17,32 @@ from datetime import datetime, UTC, timedelta
 from collections import defaultdict, Counter
 from pathlib import Path
 from typing import Optional
+import os
+import shutil
+import tempfile
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from auth.key_manager import KeyManager
+from auth.dependencies import get_key_manager
 from auth.models      import ROLE_HIERARCHY
+from memory.customer_config import (
+    customer_rag_status,
+    save_customer_config,
+)
+from memory.ingestor import SUPPORTED_EXTS, upsert_customer_file
 
 router = APIRouter(tags=["Dashboard"])
 DASHBOARD_HTML = Path(__file__).resolve().parents[1] / "dashboard" / "dashboard.html"
 
-# Direct KeyManager — no auth middleware, dashboard is internal only
-_km = KeyManager()
+class _LazyKeyManager:
+    def __getattr__(self, name):
+        return getattr(get_key_manager(), name)
+
+
+# Direct KeyManager access remains unauthenticated; construction is lazy/shared.
+_km = _LazyKeyManager()
 
 
 # ── Serve dashboard HTML ──────────────────────────────────────────
@@ -83,6 +96,100 @@ async def list_keys(
         s = search.lower()
         keys = [k for k in keys if s in (k.get("label","")).lower() or s in (k.get("key_prefix","")).lower()]
     return {"keys": keys}
+
+
+# ── Client RAG management ─────────────────────────────────────────
+
+@router.get("/dashboard/api/client-rag")
+async def list_client_rag():
+    clients = _km.list_keys(role="client", limit=500)
+    items = []
+    for client in clients:
+        status = customer_rag_status(client["key_id"])
+        status.update({
+            "label": client.get("label", ""),
+            "key_prefix": client.get("key_prefix", ""),
+            "is_active": client.get("is_active", False),
+            "monthly_limit": client.get("monthly_limit"),
+        })
+        items.append(status)
+    return {"clients": items}
+
+
+@router.post("/dashboard/api/client-rag")
+async def configure_client_rag(
+    client_id: str = Form(...),
+    website_url: Optional[str] = Form(None),
+    files: Optional[list[UploadFile]] = File(None),
+):
+    client = _km.get_key_by_id(client_id)
+    if not client or client.get("role") != "client":
+        raise HTTPException(404, "Client key not found")
+    if not client.get("is_active"):
+        raise HTTPException(400, "Client key is revoked or inactive")
+
+    uploaded = []
+    last_ingest = None
+    for file in files or []:
+        if not file.filename:
+            continue
+        ext = os.path.splitext(file.filename)[-1].lower()
+        if ext not in SUPPORTED_EXTS:
+            raise HTTPException(400, f"Unsupported file type '{ext}'. Allowed: {sorted(SUPPORTED_EXTS)}")
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+
+        try:
+            last_ingest = upsert_customer_file(
+                client_id,
+                tmp_path,
+                filename=file.filename,
+            )
+            uploaded.append(last_ingest["uploaded_file"])
+        finally:
+            os.unlink(tmp_path)
+
+    config = None
+    if website_url is not None:
+        try:
+            config = save_customer_config(
+                client_id,
+                website_url=website_url,
+                client_name=client.get("label", ""),
+            )
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+    else:
+        config = save_customer_config(client_id, client_name=client.get("label", ""))
+
+    status = customer_rag_status(client_id)
+    return {
+        "status": "ok",
+        "message": "API Ready for Client",
+        "client": {
+            "client_id": client_id,
+            "name": client.get("label", ""),
+            "key_prefix": client.get("key_prefix", ""),
+            "role": client.get("role", ""),
+            "monthly_limit": client.get("monthly_limit"),
+        },
+        "api_details": {
+            "chat_endpoint": "/chat",
+            "auth_header": "X-API-Key",
+            "rag_namespace": client_id,
+        },
+        "uploaded_files": uploaded,
+        "website_url": config.get("website_url") if config else None,
+        "file_count": status["file_count"],
+        "chunks": last_ingest["chunks"] if last_ingest else None,
+        "vector_db": {
+            "index": status["index_path"],
+            "docs": status["docs_path"],
+            "ready": status["vector_ready"],
+        },
+    }
 
 
 # ── Create key ────────────────────────────────────────────────────

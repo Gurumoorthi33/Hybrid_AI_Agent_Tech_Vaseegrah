@@ -10,11 +10,15 @@ load_dotenv()
 # ─────────────────────────────────────────────
 # MongoDB
 # ─────────────────────────────────────────────
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://techvaseegrah:gowhats%24tech2k25@gowhats.toqv1xm.mongodb.net/gowhats?retryWrites=true&w=majority&appName=Gowhats"
-)
-MONGO_DB_NAME               = "gowhats"
+MONGO_URI = os.getenv("MONGO_URI", "")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "agenticchatbot")
+MONGO_SERVER_SELECTION_TIMEOUT_MS = int(os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "5000"))
+MONGO_CONNECT_TIMEOUT_MS = int(os.getenv("MONGO_CONNECT_TIMEOUT_MS", "5000"))
+MONGO_SOCKET_TIMEOUT_MS = int(os.getenv("MONGO_SOCKET_TIMEOUT_MS", "20000"))
+MONGO_TLS_ALLOW_INVALID_CERTIFICATES = os.getenv(
+    "MONGO_TLS_ALLOW_INVALID_CERTIFICATES",
+    "false",
+).lower() == "true"
 MONGO_CONV_COLLECTION       = "conversations"
 MONGO_SESSION_COLLECTION    = "sessions"
 MONGO_CHECKPOINT_COLLECTION = "checkpoints"
@@ -36,13 +40,8 @@ MONGO_VECTOR_COLLECTION     = "rag_vectors"
 #   claude-3-5-sonnet-20241022   ← retired Jan 2026
 # ─────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-<<<<<<< HEAD
-CLAUDE_MODEL      = "claude-haiku-4-5-20251001"
-CLAUDE_MAX_TOKENS = 300          # raised for complete product-list answers
-=======
 CLAUDE_MODEL      = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "800"))
->>>>>>> d1cf4b9 (EC2 local changes)
 
 # ─────────────────────────────────────────────
 # Vector Store (FAISS)

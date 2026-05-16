@@ -3,10 +3,10 @@ agents/retriever_agent.py
 Multi-tenant RAG Retriever Agent.
 
 For every query it:
-  1. Always searches the DEFAULT shared knowledge base (vaseegrah_veda.txt)
-  2. Also searches the CUSTOMER's private KB if one exists for their api_key
-  3. Merges results, de-duplicates, re-ranks by L2 distance
-  4. Returns docs + a confidence band ("high" / "fair" / "low")
+  1. Searches ONLY the customer's private KB when api_key/client_id is provided
+  2. Searches the DEFAULT shared knowledge base only for internal calls without
+     a customer namespace
+  3. Returns docs + a confidence band ("high" / "fair" / "low")
 
 Confidence bands drive routing in the graph:
   high → generate directly from RAG
@@ -16,25 +16,37 @@ Confidence bands drive routing in the graph:
 
 import os
 from memory.vector_store import VectorStore
+from memory.customer_config import customer_dir, validate_customer_id
 from config.settings import (
     DEFAULT_INDEX, DEFAULT_DOCS,
-    CUSTOMER_RAG_BASE, TOP_K,
+    TOP_K,
     RAG_DISTANCE_GOOD, RAG_DISTANCE_FAIR,
 )
 
-# Default KB is loaded once at import time (shared across all users)
-_default_vs = VectorStore(DEFAULT_INDEX, DEFAULT_DOCS, label="default")
+_default_vs: VectorStore | None = None
+
+
+def _get_default_vs() -> VectorStore:
+    """Load the company/internal VectorStore only for non-client retrieval."""
+    global _default_vs
+    if _default_vs is None:
+        _default_vs = VectorStore(DEFAULT_INDEX, DEFAULT_DOCS, label="default")
+    return _default_vs
 
 
 def _get_customer_vs(api_key: str | None) -> VectorStore | None:
     """Load a customer VectorStore if one has been ingested for this api_key."""
     if not api_key:
         return None
-    cust_dir   = os.path.join(CUSTOMER_RAG_BASE, api_key)
+    try:
+        client_id = validate_customer_id(api_key)
+        cust_dir = customer_dir(client_id)
+    except ValueError:
+        return None
     index_path = os.path.join(cust_dir, "index.bin")
     docs_path  = os.path.join(cust_dir, "docs.pkl")
     if os.path.exists(index_path) and os.path.exists(docs_path):
-        return VectorStore(index_path, docs_path, label=f"customer:{api_key[:8]}")
+        return VectorStore(index_path, docs_path, label=f"customer:{client_id[:8]}")
     return None
 
 
@@ -59,16 +71,18 @@ def retrieve(query: str, api_key: str | None = None, k: int = TOP_K) -> dict:
     """
     raw: list[tuple[str, float, str]] = []   # (text, distance, source_label)
 
-    # 1. Always query the default KB
-    if _default_vs.is_ready:
-        for text, dist in _default_vs.search(query, k=k):
-            raw.append((text, dist, "default"))
-
-    # 2. Query the customer KB if available
-    cust_vs = _get_customer_vs(api_key)
-    if cust_vs and cust_vs.is_ready:
-        for text, dist in cust_vs.search(query, k=k):
-            raw.append((text, dist, f"customer:{api_key[:8]}"))
+    # Client operations are isolated: if a customer namespace is provided, do
+    # not read the company/internal default vector store.
+    if api_key:
+        cust_vs = _get_customer_vs(api_key)
+        if cust_vs and cust_vs.is_ready:
+            for text, dist in cust_vs.search(query, k=k):
+                raw.append((text, dist, f"customer:{api_key[:8]}"))
+    else:
+        default_vs = _get_default_vs()
+        if default_vs.is_ready:
+            for text, dist in default_vs.search(query, k=k):
+                raw.append((text, dist, "default"))
 
     if not raw:
         return {

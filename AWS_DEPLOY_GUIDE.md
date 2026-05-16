@@ -123,7 +123,8 @@ Paste your real secrets:
 ```env
 ANTHROPIC_API_KEY=sk-ant-your-actual-key
 TAVILY_API_KEY=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
-MONGO_URI=mongodb+srv://techvaseegrah:gowhats%24tech2k25@gowhats.toqv1xm.mongodb.net/gowhats?retryWrites=true&w=majority&appName=Gowhats
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.9p8gxt8.mongodb.net/agenticchatbot?appName=Cluster0
+MONGO_DB_NAME=agenticchatbot
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -403,6 +404,10 @@ curl -X POST https://api.yowhats.com/client/ingest \
   -H "X-API-Key: ywk_live_c..." \
   -F "file=@/path/to/knowledge.pdf"
 ```
+
+Uploading the same filename again replaces that customer's stored source file
+and rebuilds only that customer's private vector DB:
+`data/customers/<client_key_id>/index.bin` and `docs.pkl`.
 
 ---
 

@@ -18,12 +18,12 @@ import hashlib
 import uuid
 from datetime import datetime, UTC, timedelta
 from typing import Optional
-from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import ConnectionFailure, PyMongoError
+from pymongo import ASCENDING, DESCENDING
+from pymongo.errors import PyMongoError
 from pymongo.read_preferences import SecondaryPreferred
 
 from auth.models import APIKey, ROLE_HIERARCHY
-from config.settings import MONGO_URI, MONGO_DB_NAME
+from config.mongo_client import get_mongo_connection, print_mongo_status_once
 
 # MongoDB collection names
 KEYS_COLLECTION  = "api_keys"
@@ -40,20 +40,18 @@ class KeyManager:
     """
 
     def __init__(self):
-        try:
-            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            client.admin.command("ping")
-            db = client[MONGO_DB_NAME]
-            self._client = client
+        conn = get_mongo_connection()
+        print_mongo_status_once()
+        if conn.ok:
+            self._client = conn.client
+            db = conn.db
             self._keys  = db[KEYS_COLLECTION]
             self._usage = db[USAGE_COLLECTION]
             self._keys_read = self._keys.with_options(read_preference=SecondaryPreferred())
             self._usage_read = self._usage.with_options(read_preference=SecondaryPreferred())
             self._ok    = True
             self._ensure_indexes()
-            print("✅ KeyManager connected to MongoDB")
-        except (ConnectionFailure, PyMongoError) as e:
-            print(f"⚠️  KeyManager: MongoDB unavailable — {e}")
+        else:
             self._ok = False
             self._client = None
             self._keys = None

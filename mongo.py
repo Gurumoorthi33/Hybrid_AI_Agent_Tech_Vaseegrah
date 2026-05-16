@@ -1,13 +1,15 @@
 import sys
 from pathlib import Path
-from pymongo import MongoClient
-from config import MONGO_URI
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-client = MongoClient(MONGO_URI)
-db = client["gowhats"]
+from config.mongo_client import get_mongo_connection
+
+conn = get_mongo_connection()
+if not conn.ok:
+    raise RuntimeError(f"MongoDB unavailable: {conn.error}")
+db = conn.db
 
 def query_mongo(query):
     query = query.lower()

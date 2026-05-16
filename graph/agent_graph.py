@@ -12,6 +12,7 @@ from typing import TypedDict, Optional
 from anthropic import Anthropic
 
 from agents.intent_classifier import classify_intent, llm_classify
+from agents.language_agent   import detect_language_profile, profile_summary
 from agents.retriever_agent   import retrieve
 from agents.web_search_agent  import web_search_team
 from agents.generator_agent   import generate_response
@@ -29,6 +30,7 @@ class AgentState(TypedDict):
     api_key:      Optional[str]
     website_url:  Optional[str]
     intent:       str
+    language_profile: dict
     rag_result:   dict
     web_result:   dict
     rag_band:     str
@@ -79,6 +81,18 @@ def load_memory_node(state: AgentState) -> AgentState:
     history = _memory.get_history(state["user_id"], state["session_id"], limit=8)
     state["history"] = history
     state["thoughts"].append(f"[Memory] {len(history)} turns loaded")
+    return state
+
+
+# ── Node: Language Profile ────────────────────────────────────────
+
+def language_node(state: AgentState) -> AgentState:
+    profile = detect_language_profile(
+        state["query"],
+        history=state.get("history", []),
+    )
+    state["language_profile"] = profile
+    state["thoughts"].append(f"[Language] {profile_summary(profile)}")
     return state
 
 
@@ -149,12 +163,9 @@ def web_search_node(state: AgentState) -> AgentState:
     result = web_search_team(
         state["query"],
         _client,
-        website_url=state.get("website_url")
+        website_url=state.get("website_url"),
+        intent=state.get("intent", ""),
     )
-<<<<<<< HEAD
-=======
-    result = web_search_team(state["query"], _client, intent=state.get("intent", ""))
->>>>>>> d1cf4b9 (EC2 local changes)
     state["web_result"] = result
     state["thoughts"].append(
         f"[WebSearch] got {len(result['docs'])} results conf={result['confidence']}"
@@ -185,6 +196,7 @@ def generate_node(state: AgentState) -> AgentState:
         history    = state.get("history", []),
         intent     = state.get("intent", "general_ecommerce"),
         client     = _client,
+        language_profile = state.get("language_profile", {}),
     )
     state["answer"] = answer
     state["thoughts"].append(f"[Generate] answer ready ({len(answer)} chars)")
@@ -203,6 +215,7 @@ def save_memory_node(state: AgentState) -> AgentState:
             "output":      state["answer"],
             "intent":      state.get("intent", ""),
             "rag_band":    state.get("rag_band", ""),
+            "language_profile": state.get("language_profile", {}),
             "react_trace": state.get("thoughts", []),
         })
     return state
@@ -215,6 +228,7 @@ def build_graph():
 
     g.add_node("domain_guard", domain_guard_node)
     g.add_node("load_memory",  load_memory_node)
+    g.add_node("language",     language_node)
     g.add_node("intent",       intent_node)
     g.add_node("rag",          rag_node)
     g.add_node("web_search",   web_search_node)
@@ -224,7 +238,8 @@ def build_graph():
     g.set_entry_point("domain_guard")
 
     g.add_edge("domain_guard", "load_memory")
-    g.add_edge("load_memory",  "intent")
+    g.add_edge("load_memory",  "language")
+    g.add_edge("language",     "intent")
     g.add_edge("intent",       "rag")
 
     g.add_conditional_edges(

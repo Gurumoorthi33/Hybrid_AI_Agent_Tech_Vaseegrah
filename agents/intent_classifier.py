@@ -128,11 +128,13 @@ def llm_classify(query: str, client) -> str:
     """
     labels = " | ".join(INTENT_KEYWORDS.keys())
     prompt = (
-        f"You are an intent classifier for a herbal e-commerce chatbot (VaseegrahVeda).\n"
+        f"You are a multilingual intent classifier for a herbal e-commerce chatbot (VaseegrahVeda).\n"
         f"Classify this customer message into exactly ONE of these intents:\n"
         f"{labels}\n\n"
         f"Customer message: \"{query}\"\n\n"
         f"Rules:\n"
+        f"- The customer may mix languages, including Tamil+English, French+English, Spanish+English, Japanese+English, or other combinations.\n"
+        f"- Understand the meaning before choosing the label.\n"
         f"- If asking about a specific product → product_inquiry\n"
         f"- If asking to list/show products → product_list\n"
         f"- If asking how to order/buy → booking_inquiry\n"

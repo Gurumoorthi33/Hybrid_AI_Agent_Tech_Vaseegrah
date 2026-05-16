@@ -20,6 +20,8 @@ Pipeline:
 
 import os
 import re
+from urllib.parse import urlparse
+
 from config.settings import TAVILY_MAX_RESULTS, CLAUDE_MODEL
 
 BRAND_CONTEXT = "VaseegrahVeda herbal products Tamil Nadu India"
@@ -37,38 +39,14 @@ def _get_tavily():
 
 # ── 1. Query Reformulator ─────────────────────────────────────────
 
-<<<<<<< HEAD
-def search_web(query: str, max_results: int = 5, website_url: str = None) -> list[dict]:
-    try:
-        tavily = _get_tavily()
-        params = {
-            "query":               query,
-            "max_results":         max_results,
-            "search_depth":        "advanced",
-            "include_answer":      False,
-            "include_raw_content": False,
-        }
-        if website_url:
-            params["include_domains"] = [website_url]
-        response = tavily.search(**params)
-        results = []
-        for r in response.get("results", []):
-            results.append({
-                "title":   r.get("title", ""),
-                "url":     r.get("url", ""),
-                "content": r.get("content", ""),
-                "score":   r.get("score", 0.0),
-            })
-        return results
-    except Exception as e:
-        print(f"Tavily search failed: {e}")
-        return []
+def _website_search_hint(website_url: str | None) -> str | None:
+    domain = _normalize_domain(website_url)
+    if not domain:
+        return None
+    return domain.replace("-", " ").replace(".", " ")
 
 
-
-# ─────────────────────── Summarizer Sub-Agent ───────────────────
-=======
-def reformulate_query(user_query: str, intent: str = "") -> str:
+def reformulate_query(user_query: str, intent: str = "", website_url: str | None = None) -> str:
     """
     Converts a raw user query into an effective web search query.
 
@@ -80,10 +58,11 @@ def reformulate_query(user_query: str, intent: str = "") -> str:
       "shipping"             → "VaseegrahVeda shipping delivery India"
     """
     q = user_query.strip().lower()
+    brand_context = _website_search_hint(website_url) or BRAND_CONTEXT
 
     # Very short / greeting → search for brand overview
     if len(q.split()) <= 2 or q in ("hi", "hello", "hey", "help", "?"):
-        return f"VaseegrahVeda {BRAND_CONTEXT} products catalog"
+        return f"{brand_context} products catalog"
 
     # Remove filler words
     fillers = {"what", "which", "how", "tell", "me", "about", "do", "you",
@@ -94,28 +73,41 @@ def reformulate_query(user_query: str, intent: str = "") -> str:
 
     # Intent-specific query shaping
     intent_prefixes = {
-        "product_list":     "VaseegrahVeda full product catalog herbal",
-        "product_inquiry":  f"VaseegrahVeda {clean} benefits ingredients how to use",
-        "order_management": f"VaseegrahVeda order {clean} tracking",
-        "shipping_delivery":"VaseegrahVeda shipping delivery time India",
-        "payment_billing":  "VaseegrahVeda payment methods refund policy",
-        "company_info":     "VaseegrahVeda company founder location contact",
-        "booking_inquiry":  "VaseegrahVeda how to buy order online website",
+        "product_list":     f"{brand_context} full product catalog",
+        "product_inquiry":  f"{brand_context} {clean} benefits ingredients how to use",
+        "order_management": f"{brand_context} order {clean} tracking",
+        "shipping_delivery":f"{brand_context} shipping delivery time",
+        "payment_billing":  f"{brand_context} payment methods refund policy",
+        "company_info":     f"{brand_context} company founder location contact",
+        "booking_inquiry":  f"{brand_context} how to buy order online website",
     }
 
     if intent and intent in intent_prefixes:
         return intent_prefixes[intent]
 
-    # Default: prepend brand name so results are brand-specific
-    if "vaseegrah" not in clean:
-        return f"VaseegrahVeda {clean}"
+    # Default: prepend the client/site hint so results are brand-specific.
+    if brand_context.lower() not in clean:
+        return f"{brand_context} {clean}"
 
     return clean
 
 
 # ── 2. Tavily Search ──────────────────────────────────────────────
 
-def search_web(query: str, max_results: int = TAVILY_MAX_RESULTS) -> dict:
+def _normalize_domain(website_url: str | None) -> str | None:
+    if not website_url:
+        return None
+
+    parsed = urlparse(website_url if "://" in website_url else f"https://{website_url}")
+    host = parsed.netloc or parsed.path
+    return host.removeprefix("www.") or None
+
+
+def search_web(
+    query: str,
+    max_results: int = TAVILY_MAX_RESULTS,
+    website_url: str | None = None,
+) -> dict:
     """
     Calls Tavily with full content extraction.
     Returns the complete Tavily response dict including:
@@ -124,22 +116,25 @@ def search_web(query: str, max_results: int = TAVILY_MAX_RESULTS) -> dict:
     """
     try:
         tavily = _get_tavily()
-        response = tavily.search(
-            query=query,
-            max_results=max_results,
-            search_depth="basic",        # basic = faster, cheaper, sufficient
-            include_answer=True,         # ← Tavily's own AI summary — USE THIS
-            include_raw_content=True,    # ← full page text for better extraction
-            include_images=False,
-        )
-        return response
+        params = {
+            "query": query,
+            "max_results": max_results,
+            "search_depth": "basic",
+            "include_answer": True,
+            "include_raw_content": True,
+            "include_images": False,
+        }
+        domain = _normalize_domain(website_url)
+        if domain:
+            params["include_domains"] = [domain]
+
+        return tavily.search(**params)
     except Exception as e:
         print(f"⚠️  Tavily search error: {e}")
         return {}
 
 
 # ── 3. Content Extractor ──────────────────────────────────────────
->>>>>>> d1cf4b9 (EC2 local changes)
 
 def extract_best_content(result: dict) -> str:
     """
@@ -165,7 +160,12 @@ def extract_best_content(result: dict) -> str:
 
 # ── 4. Summarizer ─────────────────────────────────────────────────
 
-def summarize_content(original_query: str, content: str, client) -> str:
+def summarize_content(
+    original_query: str,
+    content: str,
+    client,
+    website_url: str | None = None,
+) -> str:
     """
     Extract all useful information relevant to the user's query.
     Less restrictive than before — captures product details, prices,
@@ -175,8 +175,9 @@ def summarize_content(original_query: str, content: str, client) -> str:
         return ""
 
     try:
+        brand_context = _website_search_hint(website_url) or BRAND_CONTEXT
         prompt = (
-            f"You are a knowledgeable assistant for VaseegrahVeda, a herbal products company.\n\n"
+            f"You are a knowledgeable assistant for this client: {brand_context}.\n\n"
             f"User asked: \"{original_query}\"\n\n"
             f"From the web content below, extract ALL information that helps answer this query.\n"
             f"Include: product names, benefits, ingredients, prices, how to use, "
@@ -226,11 +227,12 @@ def validate(original_query: str, summary: str, tavily_score: float) -> tuple[bo
 
 # ── 6. Main Orchestrator ──────────────────────────────────────────
 
-<<<<<<< HEAD
-def web_search_team(query: str, client, website_url: str = None) -> dict:
-=======
-def web_search_team(query: str, client, intent: str = "") -> dict:
->>>>>>> d1cf4b9 (EC2 local changes)
+def web_search_team(
+    query: str,
+    client,
+    website_url: str | None = None,
+    intent: str = "",
+) -> dict:
     """
     Full pipeline:
       1. Reformulate query for effective web search
@@ -248,18 +250,16 @@ def web_search_team(query: str, client, intent: str = "") -> dict:
             "search_query": str,        # the actual query sent to Tavily
         }
     """
-<<<<<<< HEAD
-    search_results = search_web(query, max_results=5, website_url=website_url)
-    if not search_results:
-        return {"docs": [], "sources": [], "confidence": 0.0}
-=======
     # Step 1 — reformulate
-    search_query = reformulate_query(query, intent)
+    search_query = reformulate_query(query, intent, website_url=website_url)
     print(f"🔍 Tavily search: '{search_query}'")
->>>>>>> d1cf4b9 (EC2 local changes)
 
     # Step 2 — search
-    response = search_web(search_query, max_results=TAVILY_MAX_RESULTS)
+    response = search_web(
+        search_query,
+        max_results=TAVILY_MAX_RESULTS,
+        website_url=website_url,
+    )
     if not response:
         return {"docs": [], "sources": [], "confidence": 0.0, "search_query": search_query}
 
@@ -285,7 +285,7 @@ def web_search_team(query: str, client, intent: str = "") -> dict:
         if not content:
             continue
 
-        summary = summarize_content(query, content, client)
+        summary = summarize_content(query, content, client, website_url=website_url)
         if not summary:
             continue
 
@@ -302,15 +302,8 @@ def web_search_team(query: str, client, intent: str = "") -> dict:
     avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
 
     return {
-<<<<<<< HEAD
-        "docs":       summaries,
-        "sources":    sources,
-        "confidence": round(avg_conf, 3),
-    }
-=======
         "docs":         docs,
         "sources":      sources,
         "confidence":   round(avg_conf, 3),
         "search_query": search_query,
     }
->>>>>>> d1cf4b9 (EC2 local changes)

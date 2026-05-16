@@ -8,12 +8,11 @@ integrations; direct pymongo is simpler and faster for in-process state).
 import uuid
 from datetime import datetime, UTC
 from typing import Optional
-from pymongo import MongoClient, DESCENDING
-from pymongo.errors import ConnectionFailure
+from pymongo import DESCENDING
 from config.settings import (
-    MONGO_URI, MONGO_DB_NAME,
     MONGO_CONV_COLLECTION, MONGO_SESSION_COLLECTION, MONGO_CHECKPOINT_COLLECTION
 )
+from config.mongo_client import get_mongo_connection, print_mongo_status_once
 
 
 class MongoMemory:
@@ -23,18 +22,17 @@ class MongoMemory:
       - Full conversation history per user
       - Agent reasoning checkpoints (for ReAct replay / audit)
     """
-
     def __init__(self):
-        try:
-            self._client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            self._client.admin.command("ping")
-            self._db = self._client[MONGO_DB_NAME]
+        conn = get_mongo_connection()
+        print_mongo_status_once()
+        if conn.ok:
+            self._client = conn.client
+            self._db = conn.db
             self._conv = self._db[MONGO_CONV_COLLECTION]
             self._sessions = self._db[MONGO_SESSION_COLLECTION]
             self._checkpoints = self._db[MONGO_CHECKPOINT_COLLECTION]
-            print("✅ MongoDB connected")
-        except ConnectionFailure as e:
-            print(f"⚠️  MongoDB unavailable → memory disabled: {e}")
+        else:
+            self._client = None
             self._db = None
 
     # ─────────────────────── Session ───────────────────────

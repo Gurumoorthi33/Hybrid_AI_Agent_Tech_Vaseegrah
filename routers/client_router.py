@@ -9,22 +9,24 @@ Endpoints:
   GET   /client/keys              — list own user keys
   POST  /client/keys/{key_id}/revoke  — revoke own user key
   GET   /client/usage             — own usage summary
-  POST  /client/ingest            — upload RAG file for this client's namespace
+  POST  /client/ingest            — admin-only upload for a client's namespace
 """
 
 import os, shutil, tempfile
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form, status
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from auth.models import APIKey
 from auth.dependencies import require_role, get_key_manager
 from auth.key_manager import KeyManager
-from memory.ingestor import ingest_customer_file
+from memory.ingestor import SUPPORTED_EXTS, upsert_customer_file
+from memory.customer_config import save_customer_config
 
 router = APIRouter(prefix="/client", tags=["Client — Key & RAG Management"])
 
 _CLIENT_OR_ADMIN = Depends(require_role("client", "admin"))
+_ADMIN = Depends(require_role("admin"))
 
 
 # ── Request models ────────────────────────────────────────────────
@@ -126,30 +128,53 @@ async def client_usage(
 
 @router.post("/ingest")
 async def ingest_rag_file(
-    file:   UploadFile = File(...),
-    caller: APIKey    = _CLIENT_OR_ADMIN,
+    file:      UploadFile    = File(...),
+    client_id: str           = Query(..., description="Client key_id to update"),
+    website_url: Optional[str] = Form(None),
+    _:         APIKey        = _ADMIN,
+    km:        KeyManager    = Depends(get_key_manager),
 ):
     """
-    Upload a custom RAG knowledge file for this client.
-    The file is ingested into data/customers/<key_id>/ — isolated per client.
+    Upload or replace a custom RAG knowledge file for a client.
+    Source files are stored in data/customers/<key_id>/documents/.
+    The customer's index.bin/docs.pkl vector DB is rebuilt after every update.
     """
-    allowed_exts = {".txt", ".pdf", ".md", ".csv"}
     ext = os.path.splitext(file.filename or "")[-1].lower()
-    if ext not in allowed_exts:
-        raise HTTPException(400, f"Unsupported file type '{ext}'. Allowed: {allowed_exts}")
+    if ext not in SUPPORTED_EXTS:
+        raise HTTPException(400, f"Unsupported file type '{ext}'. Allowed: {sorted(SUPPORTED_EXTS)}")
+
+    target_client_id = client_id
+    target_client = km.get_key_by_id(target_client_id)
+    if not target_client or target_client.get("role") != "client":
+        raise HTTPException(404, "Client key not found")
+    if not target_client.get("is_active"):
+        raise HTTPException(400, "Client key is revoked or inactive")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
 
     try:
-        doc_count = ingest_customer_file(caller.key_id, tmp_path)
+        ingest_result = upsert_customer_file(
+            target_client_id,
+            tmp_path,
+            filename=file.filename,
+        )
+        if website_url is not None:
+            save_customer_config(target_client_id, website_url=website_url)
     finally:
         os.unlink(tmp_path)
 
     return {
         "status":  "ok",
-        "message": f"File '{file.filename}' ingested into your private knowledge base.",
-        "key_id":  caller.key_id,
-        "chunks":  doc_count,
+        "message": "API Ready for Client",
+        "client_name": target_client.get("label", ""),
+        "key_id":  target_client_id,
+        "uploaded_file": ingest_result["uploaded_file"],
+        "file_count": ingest_result["file_count"],
+        "chunks":  ingest_result["chunks"],
+        "vector_db": {
+            "index": ingest_result["index_path"],
+            "docs":  ingest_result["docs_path"],
+        },
     }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>YoWhats — API Key Dashboard</title>
+<title>GoWhats — API Key Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -176,6 +176,22 @@ select.finput{cursor:pointer}
 .role-card-name{font-size:13px;font-weight:500;margin-bottom:3px}
 .role-card-desc{font-size:11px;color:var(--t3);line-height:1.45}
 .role-card-tag{font-size:10px;font-family:var(--mono);margin-top:6px}
+
+/* ── Client RAG manager ── */
+.rag-grid{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:16px;margin-bottom:26px}
+.panel{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:18px}
+.panel-title{font-size:13px;font-weight:500;margin-bottom:14px;color:var(--t)}
+.help-text{font-size:12px;color:var(--t3);line-height:1.55}
+.file-input{padding:8px;background:var(--bg3);border:1px dashed var(--bd2);border-radius:var(--r2)}
+.ready-box{display:none;background:var(--gdim);border:1px solid rgba(34,197,94,.25);border-radius:var(--r);padding:14px 16px;margin-top:14px}
+.ready-box.on{display:block}
+.ready-title{color:var(--green);font-size:14px;font-weight:600;margin-bottom:8px}
+.ready-details{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12px;color:var(--t2)}
+.ready-details span:nth-child(odd){color:var(--t3)}
+.status-line{display:flex;align-items:center;gap:8px;color:var(--t2);font-size:12px}
+.status-chip{display:inline-flex;align-items:center;border-radius:20px;padding:2px 8px;font:11px var(--mono)}
+.status-chip.ready{background:var(--gdim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.status-chip.pending{background:var(--adim);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
 </style>
 </head>
 <body>
@@ -204,6 +220,10 @@ select.finput{cursor:pointer}
     <div class="nav" data-p="clients" onclick="go('clients',this)">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="12" height="8" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
       Client Keys
+    </div>
+    <div class="nav" data-p="rag" onclick="go('rag',this)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h7l3 3v9H3z"/><path d="M10 2v4h4"/><path d="M5 9h6M5 12h4"/></svg>
+      Client RAG
     </div>
 
     <div class="sb-sec">Monitor</div>
@@ -307,6 +327,45 @@ select.finput{cursor:pointer}
         <div class="tbl-box">
           <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Monthly limit</th><th>Expires</th><th>Last used</th><th>Calls (total)</th><th>Actions</th></tr></thead>
           <tbody id="clients-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+
+      <!-- ══ CLIENT RAG ══ -->
+      <div class="page" id="page-rag">
+        <div class="rag-grid">
+          <div class="panel">
+            <div class="panel-title">Configure client knowledge</div>
+            <div class="frow">
+              <label class="flabel">Client</label>
+              <select class="finput" id="rag-client"></select>
+            </div>
+            <div class="frow">
+              <label class="flabel">Knowledge files</label>
+              <input class="finput file-input" id="rag-files" type="file" multiple accept=".txt,.pdf,.md,.csv">
+              <div class="help-text" style="margin-top:7px">Supported: TXT, PDF, Markdown, CSV. Files are stored under data/customers for the selected client.</div>
+            </div>
+            <div class="frow">
+              <label class="flabel">Website fallback URL</label>
+              <input class="finput" id="rag-website" placeholder="https://client.example.com">
+            </div>
+            <button class="btn btn-primary" id="rag-save-btn" onclick="saveClientRag()" style="width:100%;justify-content:center">
+              <span id="rag-save-txt">Process RAG and website</span>
+              <span id="rag-save-spin" class="spinner" style="width:12px;height:12px"></span>
+            </button>
+            <div class="err-msg" id="rag-err"></div>
+            <div class="ready-box" id="rag-ready">
+              <div class="ready-title">API Ready for Client</div>
+              <div class="ready-details" id="rag-ready-details"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="sec-hd"><h3>Client RAG status</h3><button class="btn btn-sm btn-ghost" onclick="loadClientRag()">Refresh</button></div>
+            <div class="tbl-box" style="margin-bottom:0">
+              <table><thead><tr><th>Client</th><th>Vector DB</th><th>Files</th><th>Website</th><th>API</th></tr></thead>
+              <tbody id="rag-body"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -472,6 +531,15 @@ async function req(method, path, body) {
   return r.json();
 }
 
+async function reqForm(path, formData) {
+  const r = await fetch(BASE + path, { method: 'POST', body: formData });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.detail || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
 function spin(on) {
   document.getElementById('spin').style.display = on ? 'block' : 'none';
 }
@@ -508,7 +576,7 @@ function statusBadge(active) {
 }
 
 // ── navigation ────────────────────────────────────────────────────
-const TITLES = { overview:'Overview', keys:'All Keys', admins:'Admin Keys', clients:'Client Keys', usage:'Usage & Logs', agents:'Agentic Flows' };
+const TITLES = { overview:'Overview', keys:'All Keys', admins:'Admin Keys', clients:'Client Keys', rag:'Client RAG', usage:'Usage & Logs', agents:'Agentic Flows' };
 
 function go(page, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -518,7 +586,7 @@ function go(page, el) {
   else document.querySelector(`[data-p="${page}"]`)?.classList.add('on');
   document.getElementById('page-title').textContent = TITLES[page] || page;
   _page = page;
-  const loaders = { overview: loadOverview, keys: loadKeys, admins: loadAdmins, clients: loadClients, usage: loadUsage };
+  const loaders = { overview: loadOverview, keys: loadKeys, admins: loadAdmins, clients: loadClients, rag: loadClientRag, usage: loadUsage };
   if (loaders[page]) loaders[page]();
 }
 
@@ -644,6 +712,106 @@ async function loadClients() {
     renderRoleTable(d.keys||[], 'clients-body', true);
   } catch(e) { toast(e.message, true); }
   spin(false);
+}
+
+// ── client RAG manager ───────────────────────────────────────────
+async function loadClientRag() {
+  spin(true);
+  try {
+    const d = await req('GET', '/dashboard/api/client-rag');
+    const clients = d.clients || [];
+    renderRagSelector(clients);
+    renderRagTable(clients);
+  } catch(e) { toast(e.message, true); }
+  spin(false);
+}
+
+function renderRagSelector(clients) {
+  const sel = document.getElementById('rag-client');
+  if (!sel) return;
+  const prev = sel.value;
+  if (!clients.length) {
+    sel.innerHTML = '<option value="">No client keys available</option>';
+    return;
+  }
+  sel.innerHTML = clients.map(c => `<option value="${c.client_id}" data-url="${c.website_url||''}">
+    ${c.label || c.client_id} — ${c.key_prefix || c.client_id}
+  </option>`).join('');
+  if (prev && clients.some(c => c.client_id === prev)) sel.value = prev;
+  syncRagWebsite(clients);
+  sel.onchange = () => syncRagWebsite(clients);
+}
+
+function syncRagWebsite(clients) {
+  const sel = document.getElementById('rag-client');
+  const input = document.getElementById('rag-website');
+  if (!sel || !input) return;
+  const current = clients.find(c => c.client_id === sel.value);
+  input.value = current?.website_url || '';
+}
+
+function renderRagTable(clients) {
+  const tb = document.getElementById('rag-body');
+  if (!clients.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Create a client key before configuring RAG</td></tr>'; return; }
+  tb.innerHTML = clients.map(c => {
+    const ready = c.vector_ready;
+    return `<tr>
+      <td><div class="td-main">${c.label||'—'}</div><div class="mono" style="color:var(--t3);margin-top:3px">${c.client_id}</div></td>
+      <td><span class="status-chip ${ready?'ready':'pending'}">${ready?'ready':'pending'}</span></td>
+      <td class="mono">${c.file_count||0}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.website_url||'—'}</td>
+      <td><div class="status-line"><span class="mono">${c.key_prefix||'—'}</span>${c.is_active ? statusBadge(true) : statusBadge(false)}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveClientRag() {
+  const clientId = document.getElementById('rag-client').value;
+  const website = document.getElementById('rag-website').value.trim();
+  const files = document.getElementById('rag-files').files;
+  const err = document.getElementById('rag-err');
+  const ready = document.getElementById('rag-ready');
+  err.style.display = 'none';
+  ready.classList.remove('on');
+
+  if (!clientId) { showRagErr('Select a client'); return; }
+  if (!files.length && !website) { showRagErr('Upload at least one file or enter a website URL'); return; }
+
+  const fd = new FormData();
+  fd.append('client_id', clientId);
+  fd.append('website_url', website);
+  [...files].forEach(f => fd.append('files', f));
+
+  setRagLoading(true);
+  try {
+    const result = await reqForm('/dashboard/api/client-rag', fd);
+    document.getElementById('rag-ready-details').innerHTML = `
+      <span>client</span><span class="mono">${result.client.name || result.client.client_id}</span>
+      <span>client_id</span><span class="mono">${result.client.client_id}</span>
+      <span>key prefix</span><span class="mono">${result.client.key_prefix}</span>
+      <span>chat endpoint</span><span class="mono">${result.api_details.chat_endpoint}</span>
+      <span>auth header</span><span class="mono">${result.api_details.auth_header}</span>
+      <span>website fallback</span><span class="mono">${result.website_url || 'Not configured'}</span>
+      <span>vector DB</span><span class="mono">${result.vector_db.ready ? 'ready' : 'pending'}</span>
+    `;
+    ready.classList.add('on');
+    document.getElementById('rag-files').value = '';
+    toast(result.message || 'API Ready for Client');
+    loadClientRag();
+  } catch(e) { showRagErr(e.message); }
+  setRagLoading(false);
+}
+
+function showRagErr(msg) {
+  const el = document.getElementById('rag-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function setRagLoading(on) {
+  document.getElementById('rag-save-btn').disabled = on;
+  document.getElementById('rag-save-txt').textContent = on ? 'Processing…' : 'Process RAG and website';
+  document.getElementById('rag-save-spin').style.display = on ? 'block' : 'none';
 }
 
 // generic role table renderer
@@ -807,6 +975,7 @@ async function doCreate() {
     if (_page === 'overview') loadOverview();
     else if (_page === 'admins')  loadAdmins();
     else if (_page === 'clients') loadClients();
+    else if (_page === 'rag')     loadClientRag();
     else if (_page === 'keys')    loadKeys();
 
   } catch(e) { showErr(e.message); }
@@ -845,7 +1014,7 @@ async function doRevoke() {
     await req('POST', `/dashboard/api/keys/${_revokeId}/revoke`);
     toast('Key revoked');
     closeRevoke();
-    const reloaders = { keys: loadKeys, admins: loadAdmins, clients: loadClients, overview: loadOverview };
+    const reloaders = { keys: loadKeys, admins: loadAdmins, clients: loadClients, rag: loadClientRag, overview: loadOverview };
     if (reloaders[_page]) reloaders[_page]();
   } catch(e) { toast(e.message, true); }
   btn.disabled = false; btn.textContent = 'Revoke key';
@@ -862,7 +1031,7 @@ async function doRotate(keyId) {
     document.getElementById('rotate-hd').textContent = `🔑 New key for "${result.label}" — save it now`;
     document.getElementById('rotate-ov').classList.add('open');
     toast('Key rotated');
-    const reloaders = { keys: loadKeys, admins: loadAdmins, clients: loadClients, overview: loadOverview };
+    const reloaders = { keys: loadKeys, admins: loadAdmins, clients: loadClients, rag: loadClientRag, overview: loadOverview };
     if (reloaders[_page]) reloaders[_page]();
   } catch(e) { toast(e.message, true); }
   spin(false);

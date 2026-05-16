@@ -9,6 +9,7 @@ faiss-cpu>=1.8.0
 
 # MongoDB
 pymongo>=4.7.0
+certifi>=2024.2.2
 
 # Web Search — Tavily AI
 tavily-python>=0.3.0

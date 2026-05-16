@@ -1,16 +1,19 @@
 import sys
 from pathlib import Path
-from pymongo import MongoClient
-from utils import simple_embedding
-from config import MONGO_URI
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-client = MongoClient(MONGO_URI)
+from config import MONGO_VECTOR_COLLECTION
+from config.mongo_client import get_mongo_connection
+from utils import simple_embedding
 
-source_collection = client["gowhats"]["your_collection"]
-vector_collection = client["rag_db"]["docs"]
+conn = get_mongo_connection()
+if not conn.ok:
+    raise RuntimeError(f"MongoDB unavailable: {conn.error}")
+
+source_collection = conn.db["your_collection"]
+vector_collection = conn.db[MONGO_VECTOR_COLLECTION]
 
 def ingest_mongo():
     for doc in source_collection.find():

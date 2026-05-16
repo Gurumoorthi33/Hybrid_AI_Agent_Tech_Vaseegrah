@@ -44,6 +44,7 @@ def run_query(query: str, user_id: str = "default_user", api_key: str | None = N
         "website_url":  website_url,
         # intermediate — initialised empty
         "intent":       "",
+        "language_profile": {},
         "rag_result":   {"docs": [], "sources": [], "distances": [], "confidence": "low", "best_dist": 9999.0},
         "web_result":   {"docs": [], "sources": [], "confidence": 0.0},
         "rag_band":     "low",
