@@ -70,7 +70,7 @@ aside{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var
 .page{display:none}.page.active{display:block}
 
 /* ── Stat cards ── */
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:26px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:26px}
 .stat{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px}
 .stat-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:9px}
 .stat-val{font-size:26px;font-weight:600;font-family:var(--mono);line-height:1}
@@ -103,6 +103,7 @@ tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--bg3)}
 .td-main{color:var(--t)!important;font-weight:500}
 .mono{font-family:var(--mono);font-size:12px}
+.money{font-family:var(--mono);color:var(--green);font-size:12px}
 
 /* ── Badges ── */
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;font-family:var(--mono);border:1px solid transparent}
@@ -268,6 +269,7 @@ select.finput{cursor:pointer}
           <div class="stat"><div class="stat-lbl">Admin Keys</div><div class="stat-val" id="s-admins">—</div><div class="stat-sub g">Platform access</div></div>
           <div class="stat"><div class="stat-lbl">Client Keys</div><div class="stat-val" id="s-clients">—</div><div class="stat-sub g">RAG + AI access</div></div>
           <div class="stat"><div class="stat-lbl">API Calls (30d)</div><div class="stat-val" id="s-calls">—</div><div class="stat-sub" id="s-ms">—</div></div>
+          <div class="stat"><div class="stat-lbl">API Cost (30d)</div><div class="stat-val" id="s-cost">—</div><div class="stat-sub" id="s-rate">—</div></div>
         </div>
 
         <div class="charts">
@@ -300,8 +302,8 @@ select.finput{cursor:pointer}
           <button class="btn btn-sm" onclick="loadKeys()">↻ Refresh</button>
         </div>
         <div class="tbl-box">
-          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Role</th><th>Status</th><th>Expires</th><th>Last used</th><th>Calls</th><th>Actions</th></tr></thead>
-          <tbody id="keys-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Role</th><th>Status</th><th>Expires</th><th>Last used</th><th>Calls</th><th>Cost</th><th>Actions</th></tr></thead>
+          <tbody id="keys-body"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table>
         </div>
       </div>
 
@@ -313,8 +315,8 @@ select.finput{cursor:pointer}
         </div>
         <div class="sec-hd"><h3>Admin keys</h3><button class="btn btn-primary btn-sm" onclick="openCreate('admin')">+ New admin key</button></div>
         <div class="tbl-box">
-          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Expires</th><th>Last used</th><th>Calls</th><th>Actions</th></tr></thead>
-          <tbody id="admins-body"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody></table>
+          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Expires</th><th>Last used</th><th>Calls</th><th>Cost</th><th>Actions</th></tr></thead>
+          <tbody id="admins-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
         </div>
       </div>
 
@@ -325,8 +327,8 @@ select.finput{cursor:pointer}
         </div>
         <div class="sec-hd"><h3>Client keys</h3><button class="btn btn-primary btn-sm" onclick="openCreate('client')">+ New client key</button></div>
         <div class="tbl-box">
-          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Monthly limit</th><th>Expires</th><th>Last used</th><th>Calls (total)</th><th>Actions</th></tr></thead>
-          <tbody id="clients-body"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table>
+          <table><thead><tr><th>Label</th><th>Key prefix</th><th>Status</th><th>Monthly limit</th><th>Expires</th><th>Last used</th><th>Calls (total)</th><th>Cost</th><th>Actions</th></tr></thead>
+          <tbody id="clients-body"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table>
         </div>
       </div>
 
@@ -371,8 +373,9 @@ select.finput{cursor:pointer}
 
       <!-- ══ USAGE ══ -->
       <div class="page" id="page-usage">
-        <div class="stats" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="stats" style="grid-template-columns:repeat(4,minmax(0,1fr))">
           <div class="stat"><div class="stat-lbl">Calls today</div><div class="stat-val" id="u-today">—</div><div class="stat-sub" id="u-today-s">—</div></div>
+          <div class="stat"><div class="stat-lbl">Cost today</div><div class="stat-val" id="u-cost">—</div><div class="stat-sub" id="u-rate">—</div></div>
           <div class="stat"><div class="stat-lbl">Error rate</div><div class="stat-val" id="u-err">—</div><div class="stat-sub" id="u-err-s">—</div></div>
           <div class="stat"><div class="stat-lbl">Avg latency</div><div class="stat-val" id="u-ms">—</div><div class="stat-sub">per request</div></div>
         </div>
@@ -564,6 +567,11 @@ function fmtTime(iso) {
   return d.toLocaleDateString();
 }
 
+function fmtInr(value) {
+  const n = Number(value || 0);
+  return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function roleBadge(r) {
   const m = { admin: 'b-admin', client: 'b-client', user: 'b-user' };
   return `<span class="badge ${m[r]||''}">${r}</span>`;
@@ -607,6 +615,8 @@ async function loadOverview() {
     document.getElementById('s-clients').textContent = stats.clients;
     document.getElementById('s-calls').textContent   = stats.calls_30d.toLocaleString();
     document.getElementById('s-ms').textContent      = `avg ${stats.avg_ms}ms`;
+    document.getElementById('s-cost').textContent    = fmtInr(stats.cost_30d_inr);
+    document.getElementById('s-rate').textContent    = `${fmtInr(stats.api_call_cost_inr)} / call`;
     // charts
     buildLine(daily); buildDonut(roles);
     // activity
@@ -668,7 +678,8 @@ async function loadKeys() {
             <td>${statusBadge(k.is_active)}</td>
             <td class="mono" style="font-size:11px">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
             <td style="color:var(--t3);font-size:12px">${fmtTime(k.last_used_at)}</td>
-            <td class="mono">${(k.usage_count||0).toLocaleString()}</td>`,
+            <td class="mono">${(k.usage_count||0).toLocaleString()}</td>
+            <td class="money">${fmtInr(k.cost_inr)}</td>`,
       ['Label','Key prefix','Role','Status','Expires','Last used','Calls','Actions']
     );
   } catch(e) { toast(e.message, true); }
@@ -689,7 +700,8 @@ function filterKeys() {
           <td>${statusBadge(k.is_active)}</td>
           <td class="mono" style="font-size:11px">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
           <td style="color:var(--t3);font-size:12px">${fmtTime(k.last_used_at)}</td>
-          <td class="mono">${(k.usage_count||0).toLocaleString()}</td>`,
+          <td class="mono">${(k.usage_count||0).toLocaleString()}</td>
+          <td class="money">${fmtInr(k.cost_inr)}</td>`,
     []
   );
 }
@@ -817,7 +829,7 @@ function setRagLoading(on) {
 // generic role table renderer
 function renderRoleTable(keys, tbodyId, showLimit) {
   const tb = document.getElementById(tbodyId);
-  if (!keys.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">No keys yet — click "+ Generate Key" to create one</td></tr>`; return; }
+  if (!keys.length) { tb.innerHTML = `<tr><td colspan="${showLimit ? 9 : 8}" class="empty">No keys yet — click "+ Generate Key" to create one</td></tr>`; return; }
   tb.innerHTML = keys.map(k => `<tr>
     <td class="td-main">${k.label||'—'}</td>
     <td class="mono">${k.key_prefix||'—'}</td>
@@ -826,6 +838,7 @@ function renderRoleTable(keys, tbodyId, showLimit) {
     <td class="mono" style="font-size:11px">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
     <td style="color:var(--t3);font-size:12px">${fmtTime(k.last_used_at)}</td>
     <td class="mono">${(k.usage_count||0).toLocaleString()}</td>
+    <td class="money">${fmtInr(k.cost_inr)}</td>
     <td><div style="display:flex;gap:5px">
       ${k.is_active
         ? `<button class="btn btn-sm btn-danger" onclick="confirmRevoke('${k.key_id}','${k.key_prefix||k.key_id}','${k.label||''}')">Revoke</button>
@@ -839,7 +852,7 @@ function renderRoleTable(keys, tbodyId, showLimit) {
 // generic all-keys table
 function renderKeyTable(keys, tbodyId, extraCols) {
   const tb = document.getElementById(tbodyId);
-  if (!keys.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No keys found</td></tr>'; return; }
+  if (!keys.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">No keys found</td></tr>'; return; }
   tb.innerHTML = keys.map(k => `<tr>
     <td class="td-main">${k.label||'—'}</td>
     <td class="mono">${k.key_prefix||'—'}</td>
@@ -867,7 +880,11 @@ async function loadUsage() {
     const errs = ls.filter(l => !l.success).length;
     const errPct = ls.length ? (errs/ls.length*100).toFixed(1) : '0';
     const avgMs = ls.length ? Math.round(ls.reduce((a,l)=>a+(l.response_ms||0),0)/ls.length) : 0;
-    document.getElementById('u-today').textContent = ls.length;
+    const callsToday = hourly.data ? hourly.data.reduce((a,c)=>a+Number(c||0),0) : ls.length;
+    const costToday = hourly.cost_data ? hourly.cost_data.reduce((a,c)=>a+Number(c||0),0) : ls.reduce((a,l)=>a+Number(l.cost_inr||0),0);
+    document.getElementById('u-today').textContent = callsToday.toLocaleString();
+    document.getElementById('u-cost').textContent  = fmtInr(costToday);
+    document.getElementById('u-rate').textContent  = `${fmtInr(logs.api_call_cost_inr ?? hourly.api_call_cost_inr)} / call`;
     document.getElementById('u-err').textContent   = errPct + '%';
     document.getElementById('u-err-s').textContent = `${errs} errors`;
     document.getElementById('u-ms').textContent    = avgMs + 'ms';
@@ -899,6 +916,7 @@ function renderLogs(logs) {
       <span class="log-ts">${ts}</span>
       <span class="log-ep">${l.endpoint||'—'}</span>
       <span class="log-info">${l.intent||''} ${l.key_prefix?'· '+l.key_prefix:''}</span>
+      <span class="money">${fmtInr(l.cost_inr)}</span>
       <span class="log-ms">${l.response_ms||0}ms</span>
     </div>`;
   }).join('');

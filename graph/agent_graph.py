@@ -9,7 +9,6 @@ load_dotenv()
 
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Optional
-from anthropic import Anthropic
 
 from agents.intent_classifier import classify_intent, llm_classify
 from agents.language_agent   import detect_language_profile, profile_summary
@@ -18,7 +17,8 @@ from agents.web_search_agent  import web_search_team
 from agents.generator_agent   import generate_response
 from utils.domain_filter      import is_in_domain
 from memory.mongo_memory      import MongoMemory
-from config.settings          import ANTHROPIC_API_KEY
+from config.settings          import OPENAI_API_KEY
+from llm                      import OpenAIMessageClient
 
 
 # ── State schema ──────────────────────────────────────────────────
@@ -43,7 +43,7 @@ class AgentState(TypedDict):
 
 # ── Singletons ────────────────────────────────────────────────────
 
-_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+_client = OpenAIMessageClient(api_key=OPENAI_API_KEY)
 _memory = MongoMemory()
 
 _EMPTY_RAG = {"docs": [], "sources": [], "distances": [], "confidence": "low", "best_dist": 9999.0}

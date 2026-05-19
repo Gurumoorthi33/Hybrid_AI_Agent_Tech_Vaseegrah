@@ -7,10 +7,10 @@ sys.path.insert(0, str(ROOT))
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
 from retrievers import retrieve_files, retrieve_mongodb
-from anthropic import Anthropic
-from config import ANTHROPIC_API_KEY
+from config import OPENAI_API_KEY, OPENAI_MODEL
+from llm import OpenAIMessageClient
 
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
+client = OpenAIMessageClient(api_key=OPENAI_API_KEY)
 
 class State(TypedDict):
     query: str
@@ -125,7 +125,7 @@ Say:
 """
 
     res = client.messages.create(
-        model="claude-3-haiku-20240307",
+        model=OPENAI_MODEL,
         max_tokens=400,
         messages=[{"role": "user", "content": prompt}]
     )

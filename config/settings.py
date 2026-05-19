@@ -25,23 +25,17 @@ MONGO_CHECKPOINT_COLLECTION = "checkpoints"
 MONGO_VECTOR_COLLECTION     = "rag_vectors"
 
 # ─────────────────────────────────────────────
-# Anthropic / Claude
+# OpenAI
 # Model name is read from .env — change it there without touching code.
-#
-# ACTIVE models (May 2026):
-#   claude-haiku-4-5-20251001    ← fastest, cheapest  ✅ DEFAULT
-#   claude-sonnet-4-5-20250929   ← balanced
-#   claude-sonnet-4-6            ← latest balanced
-#   claude-opus-4-6              ← most capable
-#
-# RETIRED (will 404):
-#   claude-3-haiku-20240307      ← retired Feb 2026
-#   claude-3-5-haiku-20241022    ← retired Feb 2026
-#   claude-3-5-sonnet-20241022   ← retired Jan 2026
 # ─────────────────────────────────────────────
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL      = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
-CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "800"))
+OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL      = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "800"))
+
+# Billing display
+# Dashboard cost is estimated from request count because usage_logs currently
+# records API calls, not model token usage.
+API_CALL_COST_INR = float(os.getenv("API_CALL_COST_INR") or "0")
 
 # ─────────────────────────────────────────────
 # Vector Store (FAISS)

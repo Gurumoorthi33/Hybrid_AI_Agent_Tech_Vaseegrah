@@ -32,6 +32,7 @@ from memory.customer_config import (
     save_customer_config,
 )
 from memory.ingestor import SUPPORTED_EXTS, upsert_customer_file
+from config.settings import API_CALL_COST_INR
 
 router = APIRouter(tags=["Dashboard"])
 DASHBOARD_HTML = Path(__file__).resolve().parents[1] / "dashboard" / "dashboard.html"
@@ -73,11 +74,14 @@ async def stats():
     logs      = _km.get_usage(days=30, limit=10000)
     calls_30d = len(logs)
     avg_ms    = round(sum(l.get("response_ms",0) for l in logs) / max(calls_30d,1))
+    cost_30d  = _usage_cost(calls_30d)
 
     return {
         "total": total, "active": active, "admins": admins,
         "clients": clients, "new_month": new_month,
         "calls_30d": calls_30d, "avg_ms": avg_ms,
+        "api_call_cost_inr": API_CALL_COST_INR,
+        "cost_30d_inr": cost_30d,
     }
 
 
@@ -95,6 +99,9 @@ async def list_keys(
     if search:
         s = search.lower()
         keys = [k for k in keys if s in (k.get("label","")).lower() or s in (k.get("key_prefix","")).lower()]
+    for k in keys:
+        k["cost_inr"] = _usage_cost(k.get("usage_count", 0))
+        k["api_call_cost_inr"] = API_CALL_COST_INR
     return {"keys": keys}
 
 
@@ -285,7 +292,9 @@ async def chart_hourly():
             try: counts[int(ts[11:13])] += 1
             except: pass
     return {"labels": [f"{h}:00" for h in range(24)],
-            "data":   [counts.get(h, 0) for h in range(24)]}
+            "data":   [counts.get(h, 0) for h in range(24)],
+            "cost_data": [_usage_cost(counts.get(h, 0)) for h in range(24)],
+            "api_call_cost_inr": API_CALL_COST_INR}
 
 
 # ── Role breakdown ────────────────────────────────────────────────
@@ -319,7 +328,10 @@ async def activity(limit: int = 20):
 
 @router.get("/dashboard/api/logs")
 async def logs(limit: int = 60):
-    return {"logs": _km.get_usage(days=1, limit=limit)}
+    items = _km.get_usage(days=1, limit=limit)
+    for item in items:
+        item["cost_inr"] = _usage_cost(1)
+    return {"logs": items, "api_call_cost_inr": API_CALL_COST_INR}
 
 
 # ── helper ────────────────────────────────────────────────────────
@@ -332,3 +344,7 @@ def _parse_dt(value) -> datetime:
         return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
     except:
         return datetime.min.replace(tzinfo=UTC)
+
+
+def _usage_cost(calls: int | float | None) -> float:
+    return round((calls or 0) * API_CALL_COST_INR, 2)

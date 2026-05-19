@@ -22,7 +22,7 @@ import os
 import re
 from urllib.parse import urlparse
 
-from config.settings import TAVILY_MAX_RESULTS, CLAUDE_MODEL
+from config.settings import TAVILY_MAX_RESULTS, OPENAI_MODEL
 
 BRAND_CONTEXT = "VaseegrahVeda herbal products Tamil Nadu India"
 
@@ -186,7 +186,7 @@ def summarize_content(
             f"Web content:\n{content[:3000]}"
         )
         res = client.messages.create(
-            model=CLAUDE_MODEL,
+            model=OPENAI_MODEL,
             max_tokens=350,
             messages=[{"role": "user", "content": prompt}]
         )

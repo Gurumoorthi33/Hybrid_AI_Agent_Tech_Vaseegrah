@@ -3,7 +3,7 @@ agents/generator_agent.py
 Final Response Generator
 """
 
-from config.settings import CLAUDE_MODEL, CLAUDE_MAX_TOKENS
+from config.settings import OPENAI_MODEL, OPENAI_MAX_TOKENS
 
 SYSTEM_PROMPT = """You are Chattu, a WhatsApp AI assistant for VaseegrahVeda herbal products.
 
@@ -109,8 +109,8 @@ def generate_response(
 
     try:
         res = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=CLAUDE_MAX_TOKENS,
+            model=OPENAI_MODEL,
+            max_tokens=OPENAI_MAX_TOKENS,
             system=active_prompt,
             messages=messages,
         )

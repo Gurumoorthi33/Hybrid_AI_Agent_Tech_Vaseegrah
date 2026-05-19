@@ -15,7 +15,7 @@ Intent labels and what they trigger:
   general_ecommerce    → RAG broad retrieval
 """
 
-from config.settings import CLAUDE_MODEL
+from config.settings import OPENAI_MODEL
 
 # ─────────────────────── Intent keyword map ──────────────────────
 # Each intent has a primary list (higher weight) and a secondary list
@@ -142,7 +142,7 @@ def llm_classify(query: str, client) -> str:
     )
     try:
         res = client.messages.create(
-            model=CLAUDE_MODEL,
+            model=OPENAI_MODEL,
             max_tokens=15,
             messages=[{"role": "user", "content": prompt}]
         )

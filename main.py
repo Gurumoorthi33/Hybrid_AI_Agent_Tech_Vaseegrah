@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-load_dotenv()   # loads ANTHROPIC_API_KEY + TAVILY_API_KEY from .env
+load_dotenv()   # loads OPENAI_API_KEY + TAVILY_API_KEY from .env
 
 from graph.agent_graph import build_graph
 from memory.mongo_memory import MongoMemory

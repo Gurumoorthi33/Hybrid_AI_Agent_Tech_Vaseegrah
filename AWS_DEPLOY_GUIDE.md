@@ -121,7 +121,7 @@ nano /home/ec2-user/yowhats/.env
 Paste your real secrets:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-your-actual-key
+OPENAI_API_KEY=sk-proj-your-actual-key
 TAVILY_API_KEY=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
 MONGO_URI=mongodb+srv://<user>:<password>@cluster0.9p8gxt8.mongodb.net/agenticchatbot?appName=Cluster0
 MONGO_DB_NAME=agenticchatbot
